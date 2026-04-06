@@ -2,8 +2,7 @@ import { defineConfig } from 'vite'
 import { resolve } from 'path'
 
 export default defineConfig({
-  // Serve production/frontend/ as the static root
-  root: resolve(__dirname, '../frontend'),
+  root: resolve(__dirname),
   server: {
     port: 3000,
     proxy: {
