@@ -294,26 +294,24 @@ kubectl scale deployment fte-worker -n customer-success-fte --replicas=3
 
 ## 🔑 Environment Variables
 
-```env
-# Required
-OPENAI_API_KEY=sk-...
-DATABASE_URL=postgresql://user:pass@localhost:5432/fte_db
-KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+Create a `.env` file in the project root. See `.env.example` below for required variables:
 
-# WhatsApp (Twilio)
-TWILIO_ACCOUNT_SID=AC...
-TWILIO_AUTH_TOKEN=...
-TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+| Variable | Required | Description |
+|---|---|---|
+| `OPENAI_API_KEY` | Yes | OpenAI API key for GPT-4o agent |
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `KAFKA_BOOTSTRAP_SERVERS` | Yes | Kafka broker address |
+| `TWILIO_ACCOUNT_SID` | For WhatsApp | Twilio Account SID |
+| `TWILIO_AUTH_TOKEN` | For WhatsApp | Twilio Auth Token |
+| `TWILIO_WHATSAPP_FROM` | For WhatsApp | Twilio WhatsApp sender number |
+| `GMAIL_CREDENTIALS_FILE` | For Gmail | Path to Gmail service account JSON |
+| `ADMIN_API_KEY` | Optional | Admin dashboard authentication key |
+| `CORS_ORIGINS` | Optional | Allowed CORS origins |
+| `DB_POOL_MIN` | Optional | Min DB pool connections (default: 2) |
+| `DB_POOL_MAX` | Optional | Max DB pool connections (default: 10) |
+| `KAFKA_GROUP_ID` | Optional | Kafka consumer group ID |
 
-# Gmail
-GMAIL_CREDENTIALS_FILE=/path/to/service-account.json
-
-# Optional
-CORS_ORIGINS=https://techcorp.io
-DB_POOL_MIN=2
-DB_POOL_MAX=10
-KAFKA_GROUP_ID=fte-message-processor
-```
+> **Note:** Never commit `.env` files. The `.gitignore` already excludes them.
 
 ---
 
