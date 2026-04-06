@@ -1,0 +1,82 @@
+---
+# ⑤ worker-deployment.yaml
+# Kafka message processor — Deployment.
+# Stateless worker; scales horizontally up to Kafka partition count.
+# No Service needed — it consumes from Kafka, not exposed via HTTP.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fte-worker
+  namespace: fte
+  labels:
+    app: fte-worker
+    app.kubernetes.io/name: customer-success-fte
+    app.kubernetes.io/component: worker
+spec:
+  replicas: 2                    # matches inbound topic partition count minimum
+  selector:
+    matchLabels:
+      app: fte-worker
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: fte-worker
+    spec:
+      terminationGracePeriodSeconds: 60    # drain in-flight messages before kill
+      containers:
+        - name: worker
+          image: techcorp/customer-success-fte:latest
+          imagePullPolicy: Always
+          command: ["python", "-m", "production.workers.message_processor"]
+          envFrom:
+            - configMapRef:
+                name: fte-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: fte-secrets
+                  key: DATABASE_URL
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: fte-secrets
+                  key: OPENAI_API_KEY
+            - name: TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef:
+                  name: fte-secrets
+                  key: TWILIO_ACCOUNT_SID
+            - name: TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: fte-secrets
+                  key: TWILIO_AUTH_TOKEN
+          volumeMounts:
+            - name: gmail-credentials
+              mountPath: /secrets/gmail
+              readOnly: true
+          resources:
+            requests:
+              cpu:    "500m"
+              memory: "512Mi"
+            limits:
+              cpu:    "2000m"
+              memory: "1Gi"
+          # No HTTP probe — use exec ping to Kafka instead
+          livenessProbe:
+            exec:
+              command: ["python", "-c", "import socket; socket.setdefaulttimeout(3); socket.socket().connect(('kafka.fte.svc.cluster.local', 9092))"]
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            failureThreshold: 3
+      volumes:
+        - name: gmail-credentials
+          secret:
+            secretName: gmail-service-account
+      restartPolicy: Always

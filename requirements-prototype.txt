@@ -1,0 +1,4 @@
+# Prototype dependencies (Stage 1 — Incubation)
+openai-agents>=0.0.7
+openai>=1.30.0
+mcp>=1.0.0

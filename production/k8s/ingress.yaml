@@ -1,0 +1,104 @@
+---
+# ⑦ ingress.yaml
+# Nginx Ingress — routes external HTTPS traffic to fte-api Service.
+# Requires nginx ingress controller and cert-manager installed in the cluster.
+#
+# Install nginx ingress:  helm install ingress-nginx ingress-nginx/ingress-nginx
+# Install cert-manager:   helm install cert-manager jetstack/cert-manager --set installCRDs=true
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fte-ingress
+  namespace: fte
+  labels:
+    app.kubernetes.io/name: customer-success-fte
+  annotations:
+    kubernetes.io/ingress.class:              "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex:    "true"
+    # Rate limiting — protects webhook endpoints from flooding
+    nginx.ingress.kubernetes.io/limit-rps:    "50"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
+    # TLS certificate provisioned automatically by cert-manager
+    cert-manager.io/cluster-issuer:           "letsencrypt-prod"
+    # Increase body size for email attachments (webhook payloads)
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  tls:
+    - hosts:
+        - api.techcorp.io
+      secretName: fte-tls-cert
+  rules:
+    - host: api.techcorp.io
+      http:
+        paths:
+          # Web form endpoints
+          - path: /support(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: fte-api
+                port:
+                  name: http
+
+          # Webhook endpoints
+          - path: /webhooks(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: fte-api
+                port:
+                  name: http
+
+          # Ops endpoints
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: fte-api
+                port:
+                  name: http
+
+          - path: /metrics(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: fte-api
+                port:
+                  name: http
+
+          # Customer + ticket management
+          - path: /customers(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: fte-api
+                port:
+                  name: http
+
+          - path: /tickets(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: fte-api
+                port:
+                  name: http
+
+---
+# ClusterIssuer for Let's Encrypt TLS certificates (cert-manager).
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  labels:
+    app.kubernetes.io/name: customer-success-fte
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: ops@techcorp.io
+    privateKeySecretRef:
+      name: letsencrypt-prod-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx

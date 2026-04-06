@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ticket Status — TechCorp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/theme.css">
+  <style>
+    .content-stack { display: flex; flex-direction: column; gap: 16px; }
+
+    /* WS status bar */
+    .ws-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-radius: var(--radius-md);
+      padding: 10px 16px;
+      font-size: 13px;
+    }
+    .ws-connecting {
+      background: rgba(6, 182, 212, 0.08);
+      border: 1px solid var(--cyan-800);
+      color: var(--slate-400);
+    }
+    .ws-connected {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34D399;
+      font-weight: 500;
+    }
+    .ws-disconnected {
+      background: rgba(234, 179, 8, 0.08);
+      border: 1px solid rgba(234, 179, 8, 0.3);
+      color: #FDE047;
+    }
+    .ws-url {
+      margin-left: auto;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--slate-500);
+    }
+    .green-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #22c55e; display: inline-block;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .btn-retry {
+      margin-left: auto;
+      border: 1px solid var(--cyan-700);
+      color: var(--cyan-400);
+      background: transparent;
+      padding: 3px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-retry:hover { background: rgba(6, 182, 212, 0.1); }
+
+    /* Header card */
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .header-top .ticket-ref {
+      margin-left: auto;
+      text-align: right;
+    }
+    .header-top .ticket-ref .lbl {
+      font-size: 10px;
+      color: var(--slate-500);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .header-top .ticket-ref .val {
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--cyan-400);
+    }
+    .header-subject { margin-top: 4px; }
+    .header-meta { font-size: 12px; color: var(--slate-500); margin-top: 4px; }
+
+    /* Chat */
+    .chat-thread { display: flex; flex-direction: column; gap: 16px; }
+
+    .msg-row { display: flex; align-items: flex-start; gap: 10px; }
+    .msg-row.customer { flex-direction: row-reverse; }
+
+    .avatar {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    .avatar-customer { background: var(--slate-700); color: var(--slate-200); }
+    .avatar-agent {
+      background: var(--cyan-900);
+      border: 1px solid var(--cyan-700);
+      color: var(--cyan-400);
+      font-weight: 600;
+    }
+
+    .msg-body { max-width: 75%; }
+    .bubble {
+      padding: 10px 14px;
+      font-size: 14px;
+      color: var(--slate-200);
+      line-height: 1.5;
+      word-wrap: break-word;
+    }
+    .bubble-customer {
+      background: var(--slate-700);
+      border-radius: 12px 12px 3px 12px;
+    }
+    .bubble-agent {
+      background: rgba(6, 182, 212, 0.08);
+      border: 0.5px solid var(--cyan-800);
+      border-radius: 12px 12px 12px 3px;
+    }
+    .msg-meta {
+      font-size: 11px;
+      color: var(--slate-500);
+      margin-top: 4px;
+    }
+    .msg-row.customer .msg-meta { text-align: right; }
+
+    /* Typing */
+    .typing-bubble {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(6, 182, 212, 0.08);
+      border: 0.5px solid var(--cyan-800);
+      border-radius: 12px 12px 12px 3px;
+      padding: 10px 14px;
+    }
+    .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--cyan-500);
+      display: inline-block;
+    }
+    .dot-1 { animation: bounce 1.2s infinite 0.0s; }
+    .dot-2 { animation: bounce 1.2s infinite 0.2s; }
+    .dot-3 { animation: bounce 1.2s infinite 0.4s; }
+    .typing-label {
+      font-size: 12px;
+      color: var(--cyan-600);
+      font-style: italic;
+      margin-left: 4px;
+    }
+
+    /* Escalation notice */
+    .escalation {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: rgba(239, 68, 68, 0.08);
+      border-left: 3px solid #EF4444;
+      padding: 12px 16px;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      font-size: 13px;
+      color: #FCA5A5;
+    }
+
+    .empty-thread {
+      text-align: center;
+      color: var(--slate-500);
+      font-size: 13px;
+      padding: 24px 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-icon">T</div>
+      <div>
+        <div class="brand-name">TechCorp</div>
+        <div class="brand-tagline">Customer Support</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <a href="index.html" class="btn-retry">New Request</a>
+      <a href="dashboard.html" class="btn-retry">Admin Dashboard</a>
+      <span class="live-badge"><span class="live-dot"></span> AI Online</span>
+    </div>
+  </header>
+
+  <main class="page page-medium" id="page-content">
+    <div class="content-stack">
+      <!-- WebSocket status -->
+      <div id="ws-connecting" class="ws-bar ws-connecting">
+        <span class="spinner" style="border-top-color: var(--cyan-500);"></span>
+        <span>Connecting to live updates...</span>
+      </div>
+      <div id="ws-connected" class="ws-bar ws-connected hidden">
+        <span class="green-dot"></span>
+        <span>Live updates active</span>
+        <span class="ws-url" id="ws-url-display"></span>
+      </div>
+      <div id="ws-disconnected" class="ws-bar ws-disconnected hidden">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EAB308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <span>Disconnected — showing last known state</span>
+        <button class="btn-retry" id="ws-retry-btn">Retry</button>
+      </div>
+
+      <!-- Ticket header -->
+      <section class="card" id="ticket-header-card">
+        <div class="header-top">
+          <span class="badge" id="header-status">—</span>
+          <span class="badge" id="header-priority">—</span>
+          <span class="badge" id="header-channel">—</span>
+          <div class="ticket-ref">
+            <div class="lbl">Ticket</div>
+            <div class="val mono" id="header-ref">—</div>
+          </div>
+        </div>
+        <h2 class="header-subject" id="header-subject">Loading…</h2>
+        <div class="header-meta" id="header-meta">—</div>
+      </section>
+
+      <!-- Escalation notice (hidden by default) -->
+      <div id="escalation-notice" class="escalation hidden">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <span>This ticket has been escalated to our <strong id="escalation-team">support</strong> team.</span>
+      </div>
+
+      <!-- Chat thread -->
+      <section class="card">
+        <h3 style="margin-bottom: 14px;">Conversation</h3>
+        <div class="chat-thread" id="chat-thread">
+          <div class="empty-thread">Loading conversation...</div>
+        </div>
+
+        <div class="msg-row" id="typing-indicator" style="margin-top: 16px; display: none;">
+          <div class="avatar avatar-agent">AI</div>
+          <div class="msg-body">
+            <div class="typing-bubble">
+              <span class="dot dot-1"></span>
+              <span class="dot dot-2"></span>
+              <span class="dot dot-3"></span>
+              <span class="typing-label">Alex is reviewing...</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div id="ticket-error" class="error-banner hidden">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span id="ticket-error-text">Unable to load ticket.</span>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/ticket.js"></script>
+</body>
+</html>

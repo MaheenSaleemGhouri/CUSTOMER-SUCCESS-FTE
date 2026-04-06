@@ -1,0 +1,131 @@
+---
+# ⑥ postgres.yaml
+# PostgreSQL 16 + pgvector — StatefulSet + PersistentVolumeClaim + Service.
+# Uses the pgvector/pgvector:pg16 image which includes the pgvector extension.
+#
+# NOTE: For production workloads consider a managed service (RDS, Cloud SQL,
+# Supabase) instead of a self-managed StatefulSet.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: fte
+  labels:
+    app: postgres
+    app.kubernetes.io/name: customer-success-fte
+    app.kubernetes.io/component: database
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: fte-secrets
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: fte-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fte-secrets
+                  key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+          resources:
+            requests:
+              cpu:    "500m"
+              memory: "512Mi"
+            limits:
+              cpu:    "2000m"
+              memory: "2Gi"
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+      volumes:
+        - name: init-sql
+          configMap:
+            name: postgres-init-sql    # mounts schema.sql as init script
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: standard     # override with your cluster's storage class
+        resources:
+          requests:
+            storage: 20Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: fte
+  labels:
+    app: postgres
+    app.kubernetes.io/name: customer-success-fte
+    app.kubernetes.io/component: database
+spec:
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+  type: ClusterIP
+  clusterIP: None     # headless service — required for StatefulSet DNS
+
+---
+# ConfigMap that mounts schema.sql as the Postgres init script.
+# Postgres runs all *.sql files in /docker-entrypoint-initdb.d on first start.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-sql
+  namespace: fte
+  labels:
+    app.kubernetes.io/name: customer-success-fte
+data:
+  # Schema is applied from the file at deploy time via CI/CD pipeline.
+  # The actual SQL content is injected by the deployment script:
+  #   kubectl create configmap postgres-init-sql \
+  #     --from-file=01_schema.sql=production/database/schema.sql \
+  #     -n fte --dry-run=client -o yaml | kubectl apply -f -
+  README: |
+    This ConfigMap is populated at deploy time from production/database/schema.sql.
+    See deploy/scripts/apply-schema.sh for the automation.

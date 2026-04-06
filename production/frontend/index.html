@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Support — TechCorp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/theme.css">
+  <style>
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .form-field { margin-bottom: 16px; }
+    .char-counter {
+      text-align: right;
+      font-size: 12px;
+      color: var(--slate-500);
+      margin-top: 4px;
+    }
+    .char-counter.warn { color: var(--cyan-400); }
+
+    /* Success state */
+    .success-wrap { text-align: center; padding: 36px 12px; }
+    .check-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto;
+    }
+    .success-wrap h2 { margin-top: 16px; }
+    .success-wrap .sub { font-size: 13px; color: var(--slate-400); margin-top: 6px; }
+
+    .ticket-id-box {
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid var(--cyan-700);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin: 20px 0;
+    }
+    .ticket-id-box .lbl {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: var(--cyan-600);
+      font-weight: 500;
+      letter-spacing: 0.08em;
+    }
+    .ticket-id-box .val {
+      font-family: 'DM Mono', monospace;
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--cyan-400);
+      margin-top: 4px;
+      word-break: break-all;
+    }
+
+    .eta-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34D399;
+      border-radius: var(--radius-pill);
+      padding: 5px 14px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    @media (max-width: 600px) {
+      .form-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-icon">T</div>
+      <div>
+        <div class="brand-name">TechCorp</div>
+        <div class="brand-tagline">Customer Support</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <a href="dashboard.html" class="btn-outline" style="padding:6px 14px;font-size:12px;font-weight:500;border-radius:var(--radius-pill);">Admin Dashboard</a>
+      <span class="live-badge"><span class="live-dot"></span> AI Online</span>
+    </div>
+  </header>
+
+  <!-- Page -->
+  <main class="page page-narrow">
+    <!-- Form Card -->
+    <section class="card" id="form-card">
+      <h2 class="card-title">Contact Support</h2>
+      <p class="card-sub">Alex will respond to your request within 5 minutes.</p>
+
+      <div id="error-banner" class="error-banner hidden">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span id="error-banner-text"></span>
+      </div>
+
+      <form id="support-form" novalidate>
+        <!-- Row 1: Name + Email -->
+        <div class="form-row">
+          <div>
+            <label for="name" class="section-label">Full Name <span class="req">*</span></label>
+            <input id="name" name="name" type="text" class="input" placeholder="Sarah Ahmed" autocomplete="name">
+            <span class="field-error hidden" id="err-name"></span>
+          </div>
+          <div>
+            <label for="email" class="section-label">Email Address <span class="req">*</span></label>
+            <input id="email" name="email" type="email" class="input" placeholder="sarah@company.com" autocomplete="email">
+            <span class="field-error hidden" id="err-email"></span>
+          </div>
+        </div>
+
+        <!-- Row 2: Subject -->
+        <div class="form-field">
+          <label for="subject" class="section-label">Subject <span class="req">*</span></label>
+          <input id="subject" name="subject" type="text" class="input" placeholder="Brief description of your issue">
+          <span class="field-error hidden" id="err-subject"></span>
+        </div>
+
+        <!-- Row 3: Category + Priority -->
+        <div class="form-row">
+          <div>
+            <label for="category" class="section-label">Category <span class="req">*</span></label>
+            <select id="category" name="category" class="select">
+              <option value="general">General Question</option>
+              <option value="technical">Technical Support</option>
+              <option value="billing">Billing Inquiry</option>
+              <option value="account">Account Issue</option>
+              <option value="integration">Integration / API</option>
+              <option value="feature_request">Feature Request</option>
+              <option value="onboarding">Onboarding</option>
+              <option value="authentication">Authentication</option>
+              <option value="legal">Legal / Compliance</option>
+            </select>
+          </div>
+          <div>
+            <label for="priority" class="section-label">Priority</label>
+            <select id="priority" name="priority" class="select">
+              <option value="low">Low — Not urgent</option>
+              <option value="medium" selected>Medium — Need help soon</option>
+              <option value="high">High — Urgent issue</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Row 4: Message -->
+        <div class="form-field">
+          <label for="message" class="section-label">How can we help? <span class="req">*</span></label>
+          <textarea id="message" name="message" class="textarea" rows="6" maxlength="1000" placeholder="Please describe your issue in detail..."></textarea>
+          <div class="char-counter" id="char-counter">0 / 1000</div>
+          <span class="field-error hidden" id="err-message"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full" id="submit-btn">
+          <span id="submit-text">Submit Support Request</span>
+        </button>
+      </form>
+    </section>
+
+    <!-- Success Card (hidden initially) -->
+    <section class="card hidden" id="success-card">
+      <div class="success-wrap">
+        <div class="check-circle success-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        <h2>Thank You!</h2>
+        <p class="sub">Your support request has been submitted successfully.</p>
+
+        <div class="ticket-id-box">
+          <div class="lbl">Your Ticket ID</div>
+          <div class="val mono" id="success-ticket-id">—</div>
+        </div>
+
+        <span class="eta-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span id="success-eta">Response within 5 minutes</span>
+        </span>
+
+        <div style="margin-top: 20px;">
+          <button type="button" class="btn btn-outline" id="reset-btn">Submit Another Request</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/form.js"></script>
+</body>
+</html>

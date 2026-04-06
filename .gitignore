@@ -1,0 +1,46 @@
+# Environment variables — NEVER push these
+.env
+.env.local
+.env.production
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.pyc
+venv/
+env/
+.venv/
+pip-log.txt
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+*.log
+
+# Database
+*.sqlite
+*.db
+
+# Kubernetes secrets (already in secrets/ folder)
+secrets/
+
+# Claude
+.claude/

@@ -1,0 +1,32 @@
+---
+# ② configmap.yaml
+# Non-sensitive platform configuration.
+# Sensitive values (API keys, passwords) live in secrets.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fte-config
+  namespace: fte
+  labels:
+    app.kubernetes.io/name: customer-success-fte
+data:
+  # ── Kafka ─────────────────────────────────────────────────
+  KAFKA_BOOTSTRAP_SERVERS: "kafka.fte.svc.cluster.local:9092"
+  KAFKA_GROUP_ID:           "fte-message-processor"
+  KAFKA_REPLICATION_FACTOR: "3"
+
+  # ── Database ──────────────────────────────────────────────
+  DB_POOL_MIN: "2"
+  DB_POOL_MAX: "10"
+
+  # ── API ───────────────────────────────────────────────────
+  CORS_ORIGINS:  "https://techcorp.io,https://app.techcorp.io"
+  LOG_LEVEL:     "INFO"
+  WORKERS:       "4"
+
+  # ── Twilio ────────────────────────────────────────────────
+  TWILIO_WHATSAPP_FROM: "whatsapp:+14155238886"
+
+  # ── Gmail ─────────────────────────────────────────────────
+  GMAIL_CREDENTIALS_FILE: "/secrets/gmail/credentials.json"
+  GMAIL_PUBSUB_TOPIC:     "projects/techcorp-prod/topics/gmail-push"

@@ -1,0 +1,11 @@
+---
+# ① namespace.yaml
+# Isolates all Customer Success FTE resources in their own namespace.
+# Apply first: kubectl apply -f namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fte
+  labels:
+    app.kubernetes.io/name: customer-success-fte
+    app.kubernetes.io/managed-by: kubectl

@@ -1,0 +1,1025 @@
+# skills-manifest.yaml — Exercise 1.5
+# Customer Success Digital FTE | Incubation Phase
+# Version: 1.5.0 | Stage: 1 — Incubation
+#
+# Defines the 5 core skills of the Customer Success FTE agent.
+# Each skill maps to one @function_tool / MCP tool.
+# Production mapping: each skill → @function_tool in production/agent/tools.py
+#
+# Skill execution order (MANDATORY):
+#   create_ticket → get_customer_history → search_knowledge_base
+#   → [escalate_to_human if triggered] → send_response
+
+manifest:
+  name: customer-success-fte
+  version: 1.5.0
+  description: >
+    Skill manifest for the TechCorp Customer Success Digital FTE.
+    Defines 5 agent skills covering the full support lifecycle across
+    Email (Gmail), WhatsApp (Twilio), and Web Form channels.
+  author: Agent Factory — Hackathon 5
+  stage: incubation
+  target_stage: specialization
+  channels:
+    - email
+    - whatsapp
+    - web_form
+  execution_order:
+    - create_ticket        # ALWAYS first
+    - get_customer_history # ALWAYS second
+    - search_knowledge_base
+    - escalate_to_human    # conditional
+    - send_response        # ALWAYS last
+
+
+# ═══════════════════════════════════════════════════════════════
+# SKILL 1 — create_ticket
+# ═══════════════════════════════════════════════════════════════
+
+skills:
+
+  - id: skill_create_ticket
+    name: create_ticket
+    display_name: "Create Support Ticket"
+    version: "1.0"
+    execution_order: 1   # MANDATORY — must be called before any other skill
+
+    description: >
+      Opens a support ticket for every customer interaction, regardless of
+      complexity. Assigns a unique ticket ID used by all downstream skills.
+      Records channel, priority, category, and the original customer message.
+      No customer interaction may proceed without a ticket.
+
+    trigger:
+      always: true
+      condition: "Every inbound customer message on any channel"
+      exceptions: []   # No exceptions — this skill is unconditionally mandatory
+
+    input:
+      required:
+        - name: customer_id
+          type: string
+          description: "Customer email (Email/Web Form) or phone number (WhatsApp)"
+          examples:
+            - "sarah.johnson@acmecorp.com"
+            - "+15125550142"
+
+        - name: issue
+          type: string
+          description: "1-2 sentence summary of the customer's reported issue"
+          max_length: 300
+          examples:
+            - "Customer cannot receive password reset email despite multiple attempts"
+            - "Customer reports data loss after accidental project deletion"
+
+        - name: channel
+          type: string
+          enum: [email, whatsapp, web_form]
+          description: "The channel this message arrived on"
+
+      optional:
+        - name: priority
+          type: string
+          enum: [low, medium, high, critical]
+          default: medium
+          description: "Ticket urgency. Set to 'critical' for data loss or legal threats."
+
+        - name: category
+          type: string
+          enum:
+            - authentication
+            - billing
+            - technical
+            - general
+            - integration
+            - legal
+            - feature_request
+            - account
+          description: "Issue category for routing and analytics"
+
+        - name: customer_name
+          type: string
+          description: "Display name if available from channel metadata"
+
+        - name: message
+          type: string
+          description: "The full original customer message, stored verbatim"
+
+    output:
+      fields:
+        - name: ticket_id
+          type: string
+          pattern: "TKT-[A-F0-9]{8}"
+          description: "Unique ticket identifier — required by all downstream skills"
+          example: "TKT-A3F8C012"
+
+        - name: status
+          type: string
+          enum: [open, escalated, resolved]
+          description: "Initial status is always 'open'"
+
+        - name: created_at
+          type: string
+          format: ISO 8601
+          description: "UTC timestamp of ticket creation"
+
+        - name: customer_id
+          type: string
+          description: "Canonical (resolved) customer ID"
+
+        - name: channel
+          type: string
+
+        - name: priority
+          type: string
+
+    priority_rules:
+      critical:
+        - "Data loss or corruption reported"
+        - "Legal keywords present: lawyer, sue, attorney, court"
+        - "Security vulnerability disclosed"
+        - "Account suspended with business impact"
+      high:
+        - "Billing dispute or duplicate charge"
+        - "Access blocked preventing business operations"
+        - "Error 500 on business-critical feature"
+        - "2FA lockout"
+      medium:
+        - "Integration setup failures"
+        - "Feature not working as expected"
+        - "Team member access issues"
+      low:
+        - "How-to questions"
+        - "Feature capability inquiries"
+        - "Onboarding guidance"
+        - "Feature requests"
+
+    channel_behaviour:
+      email:
+        extract_from: "subject line + message body"
+        priority_signal: "URGENT / LEGAL / CEO in subject → high or critical"
+      whatsapp:
+        extract_from: "message body (no subject)"
+        priority_signal: "ALL CAPS, multiple !!! → raise priority"
+      web_form:
+        extract_from: "subject + message + category field + priority field"
+        priority_signal: "High priority selected + billing/bug_report category → critical"
+
+    production_mapping:
+      file: "production/agent/tools.py"
+      class: "TicketInput"
+      decorator: "@function_tool"
+      db_table: "tickets"
+
+    performance_target:
+      latency_ms: 50   # in-memory; 200ms with PostgreSQL
+
+    examples:
+      - input:
+          customer_id: "sarah.johnson@acmecorp.com"
+          issue: "Customer unable to receive password reset email"
+          priority: "high"
+          channel: "email"
+          category: "authentication"
+        output:
+          ticket_id: "TKT-A3F8C012"
+          status: "open"
+          priority: "high"
+
+      - input:
+          customer_id: "+15125550198"
+          issue: "Customer reports complete data loss and demands manager immediately"
+          priority: "critical"
+          channel: "whatsapp"
+          category: "technical"
+        output:
+          ticket_id: "TKT-B9D2E401"
+          status: "open"
+          priority: "critical"
+
+
+# ═══════════════════════════════════════════════════════════════
+# SKILL 2 — get_customer_history
+# ═══════════════════════════════════════════════════════════════
+
+  - id: skill_get_customer_history
+    name: get_customer_history
+    display_name: "Get Customer History"
+    version: "1.0"
+    execution_order: 2   # Always second, after create_ticket
+
+    description: >
+      Retrieves the complete cross-channel interaction profile for a customer.
+      Returns all prior tickets, conversation memory (last 5 turns), sentiment
+      trend, topics discussed, and channel journey. Enables personalised responses
+      by preventing customers from repeating themselves across sessions or channels.
+      Automatically resolves aliases — a WhatsApp phone number and email belonging
+      to the same person are unified into one profile.
+
+    trigger:
+      always: true
+      condition: "Every interaction, immediately after create_ticket"
+      purpose: "Personalise response and detect returning customers with unresolved issues"
+
+    input:
+      required:
+        - name: customer_id
+          type: string
+          description: >
+            Customer email or phone number. Aliases are resolved to the canonical ID
+            automatically using the cross-channel identity store.
+
+      optional:
+        - name: alias_for
+          type: string
+          description: >
+            If the current customer_id is an alias of another ID (e.g. a WhatsApp
+            phone for a customer whose primary ID is their email), provide the
+            canonical ID here to merge the profiles.
+          example: "diana.park@brandco.com"
+
+    output:
+      fields:
+        - name: customer_id
+          type: string
+          description: "Resolved canonical customer ID"
+
+        - name: is_new_customer
+          type: boolean
+          description: "True if this is the customer's first ever contact"
+
+        - name: channels_used
+          type: array
+          items: string
+          description: "Ordered list of channels this customer has used"
+          example: ["whatsapp", "email"]
+
+        - name: channel_switches
+          type: integer
+          description: "Number of times customer switched channels"
+
+        - name: sentiment_score
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          description: "Current running-average sentiment (0=angry, 1=happy)"
+
+        - name: sentiment_trend
+          type: string
+          enum: [improving, stable, worsening, unknown]
+          description: "Direction of sentiment change over recent turns"
+
+        - name: anger_spike_detected
+          type: boolean
+          description: >
+            True if most recent sentiment dropped sharply from neutral to angry.
+            When true, agent should escalate proactively.
+
+        - name: topics_discussed
+          type: array
+          items: string
+          description: "All topics ever raised by this customer"
+
+        - name: topic_frequency
+          type: object
+          description: "topic → count map for most recurring issues"
+          example: { "notifications": 3, "integration_slack": 2 }
+
+        - name: session_count
+          type: integer
+          description: "How many separate support sessions this customer has had"
+
+        - name: escalation_count
+          type: integer
+          description: "How many times this customer has been escalated to human"
+
+        - name: recent_conversation
+          type: array
+          description: "Last 5 turns of conversation history across all channels"
+          items:
+            role: string  # user | assistant
+            content: string
+            channel: string
+            topics: array
+            ts: string
+
+        - name: tickets
+          type: array
+          description: "All prior tickets for this customer"
+
+    agent_instructions:
+      new_customer: "Greet warmly. Provide thorough guidance. No prior context needed."
+      returning_customer: >
+        Reference prior interaction if relevant. Say 'I can see you contacted us about
+        [topic] previously' to show continuity. Do not ask them to repeat themselves.
+      worsening_sentiment: >
+        Lead with empathy before solution. If anger_spike_detected=true, escalate
+        proactively before attempting to resolve.
+      multiple_sessions: >
+        If session_count > 3 for same recurring issue, escalate to senior CSM —
+        this is a chronic problem requiring human intervention.
+      multi_channel: >
+        Acknowledge the channel switch: 'I can see your earlier WhatsApp conversation
+        — let me pick up from where we left off.'
+
+    production_mapping:
+      file: "production/agent/tools.py"
+      class: "none (customer_id: str)"
+      decorator: "@function_tool"
+      db_tables: ["customers", "customer_identifiers", "conversations", "messages", "tickets"]
+
+    performance_target:
+      latency_ms: 100   # single DB query with JOIN; 500ms target in production
+
+    examples:
+      - scenario: "New customer — first contact"
+        input: { customer_id: "newuser@startup.com" }
+        output:
+          is_new_customer: true
+          channels_used: []
+          sentiment_score: null
+          tickets: []
+
+      - scenario: "Returning customer — switched from WhatsApp to Email"
+        input:
+          customer_id: "diana.park@brandco.com"
+          alias_for: "+15125550999"
+        output:
+          is_new_customer: false
+          channels_used: ["whatsapp", "email"]
+          channel_switches: 1
+          sentiment_score: 0.38
+          sentiment_trend: "worsening"
+          topics_discussed: ["notifications", "integration_slack"]
+          tickets:
+            - ticket_id: "TKT-C1A2B3C4"
+              channel: "whatsapp"
+              status: "open"
+              issue: "Slack notifications not working"
+
+
+# ═══════════════════════════════════════════════════════════════
+# SKILL 3 — search_knowledge_base
+# ═══════════════════════════════════════════════════════════════
+
+  - id: skill_search_knowledge_base
+    name: search_knowledge_base
+    display_name: "Search Knowledge Base"
+    version: "1.0"
+    execution_order: 3   # After history check; before composing response
+
+    description: >
+      Queries TechCorp's product knowledge base to find relevant documentation,
+      how-to guides, integration instructions, known bugs, and plan feature details.
+      Must be called before composing any response to a technical or product question.
+      In production, uses pgvector cosine similarity search on 1536-dim embeddings.
+      In incubation, uses keyword overlap scoring.
+      If called twice with no results, agent must escalate — do not guess.
+
+    trigger:
+      condition: >
+        Any technical question, how-to query, feature capability question,
+        integration question, or bug/status inquiry
+      exceptions:
+        - "Pricing questions → skip KB, escalate directly"
+        - "Refund requests → skip KB, escalate directly"
+        - "Legal matters → skip KB, escalate directly"
+        - "Human requested on WhatsApp → skip KB, escalate directly"
+
+    input:
+      required:
+        - name: query
+          type: string
+          description: >
+            The customer's question or issue description in natural language.
+            Use the customer's own words for best results.
+          examples:
+            - "how to reset password"
+            - "slack integration not working on starter plan"
+            - "gantt pdf export error 500"
+            - "add team member can't see projects"
+
+      optional:
+        - name: max_results
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+          description: "Number of KB entries to return"
+
+        - name: category
+          type: string
+          enum:
+            - authentication
+            - integrations
+            - billing
+            - plans
+            - features
+            - security
+            - developers
+            - onboarding
+            - known_issues
+            - account
+            - team_management
+          description: >
+            Narrow search to a specific category for precision.
+            Use when the topic is clearly scoped (e.g. 'authentication' for login issues).
+
+    output:
+      fields:
+        - name: found
+          type: boolean
+          description: "True if matching entries were found"
+
+        - name: results
+          type: array
+          description: "Matching knowledge base entries ordered by relevance"
+          items:
+            id: string
+            category: string
+            title: string
+            content: string
+
+        - name: message
+          type: string
+          description: "Present only when found=false. Instructs agent to escalate on second miss."
+
+    failure_protocol:
+      first_miss: "Try again with a different query or broader keywords"
+      second_miss: >
+        Call escalate_to_human with reason='technical_tier2'.
+        Never say 'I don't know' — always escalate after 2 misses.
+      max_calls_per_interaction: 3
+
+    content_categories:
+      authentication:   ["password reset", "2FA", "login", "lockout", "backup codes"]
+      integrations:     ["Slack", "GitHub", "Zapier", "MS Teams", "Zoom", "SSO/SAML"]
+      billing:          ["billing portal", "subscription", "data retention on cancel"]
+      plans:            ["plan features", "user limits", "storage limits", "upgrade paths"]
+      features:         ["Calendar view", "Gantt view", "notifications", "export", "templates"]
+      security:         ["SOC 2", "GDPR", "CCPA", "SAML SSO", "encryption"]
+      developers:       ["API", "webhooks", "rate limits", "HMAC signature"]
+      onboarding:       ["getting started", "new user guide", "quick start"]
+      known_issues:     ["Gantt PDF bug (fix in v3.2.1)", "Slack peak-hour delay"]
+      account:          ["workspaces", "data retention", "account settings"]
+      team_management:  ["invite member", "roles", "permissions", "project access"]
+
+    production_mapping:
+      file: "production/agent/tools.py"
+      class: "KnowledgeSearchInput"
+      decorator: "@function_tool"
+      db_table: "knowledge_base"
+      search_type: "pgvector cosine similarity (ivfflat index)"
+      embedding_model: "text-embedding-3-small (1536 dims)"
+
+    performance_target:
+      latency_ms: 200   # includes embedding + vector search
+
+    examples:
+      - input: { query: "pdf export broken gantt", max_results: 1 }
+        output:
+          found: true
+          results:
+            - id: "kb_gantt_pdf"
+              title: "Gantt PDF Export Bug"
+              content: "KNOWN ISSUE: Gantt PDF export fails with error 500. Fix in v3.2.1 next Tuesday. Workaround: export CSV."
+
+      - input: { query: "enterprise pricing discount" }
+        output:
+          found: false
+          results: []
+          message: "No matching entries. This query should be escalated — never answer pricing questions."
+
+      - input: { query: "slack notifications not working starter plan", category: "integrations" }
+        output:
+          found: true
+          results:
+            - id: "kb_slack"
+              title: "Slack Integration"
+              content: "Slack requires Growth plan or above. Starter plan customers must upgrade."
+
+
+# ═══════════════════════════════════════════════════════════════
+# SKILL 4 — escalate_to_human
+# ═══════════════════════════════════════════════════════════════
+
+  - id: skill_escalate_to_human
+    name: escalate_to_human
+    display_name: "Escalate to Human Agent"
+    version: "1.0"
+    execution_order: 4   # Conditional — call before send_response when triggered
+
+    description: >
+      Routes the current ticket to the appropriate human specialist team based on
+      a reason tag. Generates an escalation ID with SLA commitment. Updates ticket
+      status to 'escalated'. Provides a pre-written message the agent must use
+      when informing the customer of the escalation.
+      This skill is triggered by hard conditions — never skip it when conditions are met.
+
+    trigger:
+      condition: "Any of the hard escalation conditions below are detected"
+      hard_triggers:
+        pricing_inquiry:
+          description: "Any mention of pricing, discounts, custom pricing, negotiation"
+          examples:
+            - "How much does Enterprise cost?"
+            - "Can I get a discount for my team?"
+            - "Do you have nonprofit pricing?"
+          routing: "sales@techcorp.io"
+          urgency: normal
+          sla: "24 hours"
+
+        refund_request:
+          description: "Any request for refund, credit, invoice adjustment, or chargeback"
+          examples:
+            - "I want a refund for last 3 months"
+            - "I was charged twice — need a credit"
+            - "Dispute this invoice"
+          routing: "billing@techcorp.io"
+          urgency: high
+          sla: "1 hour"
+
+        legal_escalation:
+          description: >
+            Keywords: lawyer, legal, sue, attorney, court, litigation.
+            Also: GDPR data deletion, data breach, security vulnerability,
+            FERPA compliance, formal legal notices.
+          examples:
+            - "I will contact my lawyer"
+            - "GDPR data deletion request"
+            - "XSS vulnerability disclosure"
+            - "Notice of intent — data breach claim"
+          routing: "legal@techcorp.io"
+          urgency: critical
+          sla: "15 minutes"
+
+        angry_customer:
+          description: >
+            Sentiment score below 0.3, profanity, explicit threats,
+            or statement 'I want to cancel / speak to a manager / this is unacceptable'
+          examples:
+            - "This is completely broken!! RIGHT NOW"
+            - "I'm canceling, this is unacceptable"
+          routing: "csm@techcorp.io"
+          urgency: high
+          sla: "1 hour"
+
+        human_requested:
+          description: "WhatsApp: customer types human, agent, representative, real person"
+          channel_specific: whatsapp
+          examples:
+            - "I need a real person"
+            - "talk to an agent"
+            - "representative please"
+          routing: "csm@techcorp.io"
+          urgency: normal
+          sla: "1 hour"
+
+        technical_tier2:
+          description: >
+            Data loss or corruption, security vulnerabilities, API production failures,
+            or 2 consecutive failed knowledge base searches.
+          examples:
+            - "We lost 2 weeks of project data"
+            - "Accidental project deletion — can it be recovered?"
+            - "Excel export blank for payroll processing"
+          routing: "bugs@techcorp.io"
+          urgency: high
+          sla: "4 hours"
+          urgency_override:
+            condition: "data_loss=true"
+            urgency: critical
+            sla: "15 minutes"
+
+        enterprise_account:
+          description: "Enterprise or Business plan account with unresolved issue"
+          routing: "csm@techcorp.io"
+          urgency: high
+          sla: "1 hour"
+
+        anger_spike:
+          description: "Customer sentiment drops sharply from neutral to very angry in one turn"
+          routing: "csm@techcorp.io"
+          urgency: high
+          sla: "1 hour"
+
+        business_account_unresolved:
+          description: "Business plan customer — issue unresolved after one attempt"
+          routing: "csm@techcorp.io"
+          urgency: normal
+          sla: "4 hours"
+
+        partnership_request:
+          description: "Partnership, business development, or vendor inquiry"
+          routing: "partnerships@techcorp.io"
+          urgency: low
+          sla: "24 hours"
+
+    input:
+      required:
+        - name: ticket_id
+          type: string
+          description: "Ticket ID from create_ticket — mandatory for tracking"
+
+        - name: reason
+          type: string
+          enum:
+            - pricing_inquiry
+            - refund_request
+            - legal_escalation
+            - angry_customer
+            - human_requested
+            - technical_tier2
+            - enterprise_account
+            - anger_spike
+            - business_account_unresolved
+            - partnership_request
+          description: "Routing reason tag — determines destination and SLA"
+
+      optional:
+        - name: urgency
+          type: string
+          enum: [low, normal, high, critical]
+          default: normal
+
+        - name: context
+          type: string
+          max_length: 500
+          description: "Brief context for the human agent: what was tried, what failed"
+
+    output:
+      fields:
+        - name: escalation_id
+          type: string
+          pattern: "ESC-[A-F0-9]{6}"
+          description: "Unique escalation identifier"
+
+        - name: ticket_id
+          type: string
+
+        - name: routed_to
+          type: string
+          description: "Email of the team that received this escalation"
+
+        - name: reason
+          type: string
+
+        - name: sla
+          type: string
+          description: "Committed human response time to show customer"
+          examples: ["15 minutes", "1 hour", "4 hours", "24 hours"]
+
+        - name: message_to_use
+          type: string
+          description: >
+            Pre-written message the agent MUST use verbatim (or close to verbatim)
+            when informing the customer of the escalation. Includes ticket ID and SLA.
+
+    agent_rules:
+      - "Use the message_to_use field as the basis for send_response"
+      - "Never tell the customer which team or department they are being routed to"
+      - "Never reveal the routing email address to the customer"
+      - "Always include the ticket_id reference in the customer-facing message"
+      - "After escalate_to_human, still call send_response — the customer needs a reply"
+
+    production_mapping:
+      file: "production/agent/tools.py"
+      class: "EscalationInput"
+      decorator: "@function_tool"
+      db_tables: ["tickets", "conversations"]
+      side_effects:
+        - "Sets tickets.status = 'escalated'"
+        - "Increments customer_states.escalation_count"
+        - "Publishes event to Kafka topic: fte.escalations"
+
+    performance_target:
+      latency_ms: 100
+
+    examples:
+      - scenario: "Refund request"
+        input:
+          ticket_id: "TKT-A3F8C012"
+          reason: "refund_request"
+          urgency: "high"
+          context: "Customer claims charged twice on the same date. Needs billing audit."
+        output:
+          escalation_id: "ESC-7F3A1B"
+          routed_to: "billing@techcorp.io"
+          sla: "1 hour"
+          message_to_use: >
+            I've connected you with our specialist team who can best assist with this.
+            They'll reach out within 1 hour. Your reference number is TKT-A3F8C012.
+            Is there anything else I can help with in the meantime?
+
+      - scenario: "Legal threat"
+        input:
+          ticket_id: "TKT-C9D1E2F3"
+          reason: "legal_escalation"
+          urgency: "critical"
+          context: "Customer's account suspended, threatens attorney contact due to data loss."
+        output:
+          escalation_id: "ESC-9A2C4F"
+          routed_to: "legal@techcorp.io"
+          sla: "15 minutes"
+
+
+# ═══════════════════════════════════════════════════════════════
+# SKILL 5 — send_response
+# ═══════════════════════════════════════════════════════════════
+
+  - id: skill_send_response
+    name: send_response
+    display_name: "Send Channel Response"
+    version: "1.0"
+    execution_order: 5   # MANDATORY — always the last skill called
+
+    description: >
+      Delivers the final formatted response to the customer via their channel.
+      Applies channel-specific formatting rules automatically: email responses
+      receive greeting + signature; WhatsApp is trimmed to 300 characters;
+      web form responses receive support portal reference.
+      This skill must ALWAYS be called last. The agent must never reply to a
+      customer directly without calling this skill — all output flows through here.
+
+    trigger:
+      always: true
+      condition: "After all other skills have run (search, escalate if needed)"
+      exceptions: []   # No exceptions — every interaction requires a response
+
+    input:
+      required:
+        - name: ticket_id
+          type: string
+          description: "Ticket ID from create_ticket"
+
+        - name: message
+          type: string
+          description: >
+            The response content in neutral tone.
+            Do NOT include greeting, signature, or channel-specific elements —
+            these are applied automatically by the formatter.
+            Write as if addressing the customer, but without 'Dear X' or 'Best regards'.
+
+        - name: channel
+          type: string
+          enum: [email, whatsapp, web_form]
+          description: "The delivery channel — determines formatting rules applied"
+
+      optional:
+        - name: customer_id
+          type: string
+          description: "Used for name extraction and state update after response"
+
+    output:
+      fields:
+        - name: delivery_status
+          type: string
+          enum: [delivered, failed, queued]
+          description: "In production: actual delivery confirmation from Gmail/Twilio API"
+
+        - name: ticket_id
+          type: string
+
+        - name: channel
+          type: string
+
+        - name: char_count
+          type: integer
+          description: "Length of the formatted message sent"
+
+        - name: word_count
+          type: integer
+          description: "Word count of the formatted message sent"
+
+        - name: formatted_message
+          type: string
+          description: "The exact message that was sent, post-formatting"
+
+        - name: warnings
+          type: array
+          items: string
+          description: "Non-fatal formatting warnings (e.g. WhatsApp response was trimmed)"
+
+    channel_formatting_rules:
+      email:
+        greeting:
+          rule: "Prepend 'Dear [Name],' or 'Hello [Name],' if not already present"
+          fallback: "Dear Customer,"
+        signature:
+          rule: "Append standard signature if 'Best regards' not already present"
+          template: |
+            Best regards,
+            TechCorp Support Team
+            support@techcorp.io | techcorp.io/support
+        length:
+          target_words: 200
+          max_words: 500
+          format: "Numbered lists for steps, bullets for options"
+        forbidden: ["emoji", "slang", "abbreviations", "casual language"]
+
+      whatsapp:
+        greeting:
+          rule: "Optional — 'Hi [Name]! 👋' or jump to answer"
+          max_emoji: 1
+        length:
+          target_chars: 160
+          hard_max_chars: 300
+          overflow_handling: "Trim at last sentence boundary before 300 chars"
+        suffix: "\n\n📱 Type 'human' for live support."
+        format: "Short sentences, no numbered lists, plain text steps"
+        forbidden: ["walls of text", "formal language", "full signature"]
+
+      web_form:
+        greeting:
+          rule: "Not required — get to the answer directly"
+        length:
+          target_words: 150
+          max_words: 300
+          format: "Can use headers and bullets — keep clean"
+        suffix:
+          rule: "Append support portal reference if not already present"
+          template: |
+            ---
+            Need more help? Visit our support portal at techcorp.io/support
+            or reply to this message.
+        forbidden: ["overly casual language", "full formal signature"]
+
+    quality_standards:
+      - "Address the actual question — not a generic acknowledgement"
+      - "Use the customer's name when known"
+      - "Reference exact UI paths: Settings → Integrations → Slack"
+      - "For plan-gated features: explain limitation + offer upgrade path"
+      - "For known bugs: acknowledge, give workaround, give fix timeline"
+      - "Never start with 'Unfortunately' more than once"
+      - "Never use passive voice excessively"
+      - "Never mention internal team names or routing processes"
+
+    response_templates:
+      escalation_handoff: >
+        I've connected you with our specialist team who can best assist with this.
+        They'll reach out within {sla}. Your reference number is {ticket_id}.
+        Is there anything else I can help with in the meantime?
+
+      plan_gated_feature: >
+        {feature} is available on the {required_plan} plan and above.
+        Your current {current_plan} plan does not include this feature.
+        You can upgrade at app.techcorp.io/settings/billing to unlock it.
+
+      known_bug: >
+        This is a known issue we're actively working on. A fix is scheduled for {fix_version}.
+        In the meantime, here's a workaround: {workaround}.
+        I'll note your account for follow-up once the fix is live.
+
+      first_contact: >
+        Welcome to TechCorp! I'm happy to help you get started.
+
+    production_mapping:
+      file: "production/agent/tools.py"
+      class: "ResponseInput"
+      decorator: "@function_tool"
+      db_tables: ["messages"]
+      side_effects:
+        - "Sets tickets.status = 'resolved'"
+        - "Increments customer_states.successful_resolutions"
+        - "Stores outbound message in messages table"
+        - "Publishes event to Kafka: fte.channels.{channel}.outbound"
+        - "Publishes metrics event to Kafka: fte.metrics"
+      external_calls:
+        email:    "Gmail API — messages.send()"
+        whatsapp: "Twilio WhatsApp API — messages.create()"
+        web_form: "WebSocket push to browser OR store for polling"
+
+    performance_target:
+      latency_ms: 500   # includes external API call to Gmail/Twilio
+
+    examples:
+      - scenario: "Email — password reset resolution"
+        input:
+          ticket_id: "TKT-A3F8C012"
+          channel: "email"
+          customer_id: "sarah.johnson@acmecorp.com"
+          message: >
+            I can help you get back in right away. To reset your password:
+            1. Go to app.techcorp.io/login
+            2. Click 'Forgot Password'
+            3. Enter your email address and check your inbox
+            4. The reset link expires in 24 hours
+            If you don't receive the email within 5 minutes, please check your spam folder
+            and whitelist noreply@techcorp.io.
+        output:
+          delivery_status: "delivered"
+          char_count: 512
+          warnings: []
+          formatted_message: |
+            Dear Sarah Johnson,
+
+            I can help you get back in right away. To reset your password:
+            1. Go to app.techcorp.io/login
+            ...
+            Best regards,
+            TechCorp Support Team
+            support@techcorp.io | techcorp.io/support
+
+      - scenario: "WhatsApp — known bug with workaround"
+        input:
+          ticket_id: "TKT-B9D2E401"
+          channel: "whatsapp"
+          message: >
+            The Gantt PDF export is a known bug — fix coming Tuesday in v3.2.1.
+            For now, use CSV export instead — same data, opens in Excel.
+        output:
+          delivery_status: "delivered"
+          char_count: 187
+          warnings: []
+          formatted_message: >
+            The Gantt PDF export is a known bug — fix coming Tuesday in v3.2.1.
+            For now, use CSV export instead — same data, opens in Excel.
+
+            📱 Type 'human' for live support.
+
+      - scenario: "Web Form — escalation message"
+        input:
+          ticket_id: "TKT-C9D1E2F3"
+          channel: "web_form"
+          message: >
+            I've connected you with our specialist team who can best assist with this.
+            They'll reach out within 1 hour. Your reference number is TKT-C9D1E2F3.
+        output:
+          delivery_status: "delivered"
+          char_count: 289
+          warnings: []
+
+
+# ═══════════════════════════════════════════════════════════════
+# GLOBAL RULES (Apply to ALL Skills)
+# ═══════════════════════════════════════════════════════════════
+
+global_rules:
+  execution:
+    - "create_ticket is ALWAYS called first — no exceptions"
+    - "send_response is ALWAYS called last — no exceptions"
+    - "Agent never responds to the customer without calling send_response"
+    - "Maximum 3 search_knowledge_base calls per interaction"
+    - "escalate_to_human called when any hard trigger fires"
+
+  content:
+    - "Never quote pricing, discounts, or costs"
+    - "Never process refunds or billing changes"
+    - "Never discuss legal matters beyond acknowledging and escalating"
+    - "Never mention competitor products: Asana, Monday, Notion, ClickUp, Jira, Trello"
+    - "Never promise feature timelines or roadmap delivery dates"
+    - "Never reveal internal routing, team names, or system processes"
+    - "Never say 'I don't know' — escalate instead"
+
+  tone:
+    - "Use the customer's name when known"
+    - "Lead with empathy when sentiment < 0.5"
+    - "Be specific — reference exact UI paths"
+    - "Acknowledge known bugs honestly — provide workaround + fix timeline"
+
+  channels:
+    email:    "200-500 words | greeting + signature | no emoji"
+    whatsapp: "160 chars target | 300 chars max | 1-2 emoji | conversational"
+    web_form: "100-300 words | semi-formal | support portal reference"
+
+
+# ═══════════════════════════════════════════════════════════════
+# PERFORMANCE TARGETS
+# ═══════════════════════════════════════════════════════════════
+
+performance_targets:
+  processing_response_time_ms: 3000    # end-to-end agent processing
+  delivery_response_time_ms:   30000   # including external API call
+  accuracy_on_test_set:        0.85    # > 85%
+  escalation_rate_max:         0.20    # < 20%
+  cross_channel_id_accuracy:   0.95    # > 95%
+  uptime_24h:                  0.999   # > 99.9%
+  p95_latency_ms:              3000    # all channels
+
+
+# ═══════════════════════════════════════════════════════════════
+# INCUBATION → SPECIALIZATION MAPPING
+# ═══════════════════════════════════════════════════════════════
+
+transition_map:
+  incubation:
+    tool_definition:    "@server.tool() in mcp_server.py"
+    storage:            "In-memory dict (TICKETS, CUSTOMER_STATES)"
+    logging:            "print() / logger.info()"
+    validation:         "None — raw dict arguments"
+    execution:          "Single-process, synchronous"
+
+  specialization:
+    tool_definition:    "@function_tool with Pydantic BaseModel in production/agent/tools.py"
+    storage:            "PostgreSQL 16 + pgvector"
+    logging:            "structlog structured logger"
+    validation:         "Pydantic BaseModel — all inputs validated before execution"
+    execution:          "Async Kafka workers, multi-replica Kubernetes deployment"
+
+  mapping:
+    "mcp_server.py @server.tool()"     → "production/agent/tools.py @function_tool"
+    "In-memory dict"                   → "PostgreSQL table"
+    "print()"                          → "logger.info() / logger.error()"
+    "Single thread"                    → "Async Kafka workers"
+    "Hardcoded values"                 → "ENV vars + Kubernetes ConfigMaps"
+    "Raw dict arguments"               → "Pydantic BaseModel input validation"

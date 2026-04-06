@@ -1,0 +1,97 @@
+version: "3.9"
+
+# Customer Success FTE — Local Development Stack
+#
+# ONE command se sab kuch start:
+#   docker compose up -d
+#
+# API run karne ke liye:
+#   pip install -r production/requirements.txt
+#   uvicorn production.api.main:app --reload --port 8000
+#
+# Services:
+#   postgres  — PostgreSQL 16 + pgvector  → localhost:5432
+#   kafka     — Apache Kafka              → localhost:9092
+#   zookeeper — Kafka ke liye zaroori     (internal)
+#   kafka-ui  — Kafka browser UI          → localhost:8080
+
+services:
+
+  # ── PostgreSQL 16 + pgvector ──────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: fte-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       techcorp
+      POSTGRES_USER:     fte_user
+      POSTGRES_PASSWORD: fte_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # schema.sql auto-run on first start
+      - ./production/database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fte_user -d techcorp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Zookeeper ─────────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: fte-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME:   2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+
+  # ── Apache Kafka ──────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: fte-kafka
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_started
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID:                         1
+      KAFKA_ZOOKEEPER_CONNECT:                 zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS:              PLAINTEXT://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:    PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR:  1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE:         "true"
+      KAFKA_LOG_RETENTION_HOURS:               168
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ── Kafka UI (browser mein topics dekhne ke liye) ─────────
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: fte-kafka-ui
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME:             local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+
+volumes:
+  postgres_data:
+  zookeeper_data:
+  zookeeper_logs:
+  kafka_data:

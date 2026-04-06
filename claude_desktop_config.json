@@ -1,0 +1,13 @@
+{
+  "_comment": "Add the 'mcpServers' block below into your Claude Desktop config file.",
+  "_config_path_windows": "%APPDATA%\\Claude\\claude_desktop_config.json",
+  "_config_path_mac": "~/Library/Application Support/Claude/claude_desktop_config.json",
+
+  "mcpServers": {
+    "customer-success-fte": {
+      "command": "python",
+      "args": ["C:/Hackathon 5/mcp_server.py"],
+      "env": {}
+    }
+  }
+}
