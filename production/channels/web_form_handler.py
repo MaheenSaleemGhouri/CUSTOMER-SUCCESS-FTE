@@ -306,8 +306,8 @@ async def _process_directly(
             async with db_pool.acquire() as db:
                 tid = uuid.UUID(ticket_id)
                 existing = await db.fetchval(
-                    "SELECT COUNT(*) FROM messages WHERE ticket_id = $1 AND direction = 'outbound'",
-                    tid,
+                    "SELECT COUNT(*) FROM messages WHERE conversation_id = $1 AND direction = 'outbound'",
+                    conv_id,
                 )
                 if existing == 0:
                     logger.info("Safety net: storing agent reply | ticket=%s", ticket_id)
