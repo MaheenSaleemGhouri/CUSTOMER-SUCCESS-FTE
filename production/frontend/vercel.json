@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "buildCommand": "",
+  "outputDirectory": ".",
+  "routes": [
+    {
+      "src": "/ticket",
+      "dest": "/ticket.html"
+    },
+    {
+      "src": "/dashboard",
+      "dest": "/dashboard.html"
+    }
+  ]
+}
