@@ -1,3 +1,12 @@
+---
+title: Customer Success FTE
+emoji: ⚡
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+---
+
 # 🏭 Customer Success Digital FTE
 ### Hackathon 5 — CRM Digital FTE Factory
 
