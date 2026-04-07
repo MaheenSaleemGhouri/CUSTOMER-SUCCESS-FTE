@@ -414,10 +414,176 @@ h3 { font-size: 16px; font-weight: 500; color: var(--slate-200); }
   padding-right: 20px;
 }
 
-/* ─── Mobile ────────────────────────────────────────────── */
+/* ─── Base Reset for Mobile ─────────────────────────────── */
+html { -webkit-text-size-adjust: 100%; }
+img, video { max-width: 100%; height: auto; }
+* { -webkit-tap-highlight-color: transparent; }
+
+/* ─── Tablet — 768px and below ─────────────────────────── */
 @media (max-width: 768px) {
+
+  /* Topbar */
   .topbar { padding: 0 16px; }
+  .topbar-logo-text { font-size: 13px; }
   .brand-tagline { display: none; }
+
+  /* Page content */
+  .page {
+    padding-top: 72px;
+    padding-bottom: 40px;
+  }
+  .page-narrow, .page-medium, .page-wide {
+    padding-left: 16px;
+    padding-right: 16px;
+    max-width: 100%;
+  }
+
+  /* Cards */
   .card { padding: 18px; }
-  .page-narrow, .page-medium, .page-wide { padding-left: 14px; padding-right: 14px; }
+
+  /* Stats grid — 2 columns on tablet */
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Two column panels — stack vertically */
+  .panel-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* Table — horizontal scroll */
+  .table-card {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tickets-table { min-width: 600px; }
+
+  /* Filter bar — wrap */
+  .filter-bar {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* KB grid — single col on tablet */
+  .kb-grid { grid-template-columns: 1fr; }
+}
+
+/* ─── Mobile — 480px and below ─────────────────────────── */
+@media (max-width: 480px) {
+
+  /* Topbar */
+  .topbar { height: 52px; }
+  .brand-icon { width: 24px; height: 24px; font-size: 12px; }
+  .live-badge span { display: none; }
+
+  /* Page content */
+  .page {
+    padding-top: 68px;
+    padding-bottom: 32px;
+  }
+  .page-narrow, .page-medium, .page-wide {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  /* Form card */
+  .form-card { padding: 16px; }
+
+  /* Form — single column on mobile */
+  .form-two-col {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  /* Input fields — 16px prevents iOS zoom on focus */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* Submit button */
+  .submit-btn {
+    padding: 13px 20px;
+    font-size: 15px;
+  }
+
+  /* Success state */
+  .success-icon { width: 52px; height: 52px; }
+  .ticket-id-box .val { font-size: 15px; }
+
+  /* Stats — 2 columns */
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .stat-value { font-size: 18px; }
+  .stat-label { font-size: 10px; }
+
+  /* Chat bubbles */
+  .msg-body { max-width: 88%; }
+  .bubble { font-size: 13px; }
+  .avatar { width: 28px; height: 28px; font-size: 11px; }
+
+  /* Ticket header */
+  .header-top { flex-wrap: wrap; gap: 5px; }
+  .header-top .ticket-ref { display: none; }
+
+  /* WS bar */
+  .ws-url { display: none; }
+
+  /* Dashboard table — hide less important columns */
+  .tickets-table th:nth-child(3),
+  .tickets-table td:nth-child(3) { display: none; }
+  .tickets-table th:nth-child(7),
+  .tickets-table td:nth-child(7) { display: none; }
+  .tickets-table th:nth-child(8),
+  .tickets-table td:nth-child(8) { display: none; }
+
+  /* KB panel — single column */
+  .kb-grid { grid-template-columns: 1fr; }
+
+  /* Pagination */
+  .pagination .info { display: none; }
+  .pag-group { gap: 4px; }
+  .pag-btn { padding: 4px 8px; font-size: 12px; }
+
+  /* Filter pills — scrollable row */
+  .filter-bar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .filter-bar::-webkit-scrollbar { display: none; }
+  .filter-pill { white-space: nowrap; flex-shrink: 0; }
+  .filter-search { width: 100%; margin-left: 0; }
+
+  /* Auth modal */
+  .auth-card {
+    margin: 16px;
+    width: calc(100% - 32px);
+  }
+}
+
+/* ─── Small Mobile — 375px and below ──────────────────── */
+@media (max-width: 375px) {
+
+  .page-narrow, .page-medium, .page-wide {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .card { padding: 14px; border-radius: 10px; }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .stat-card { padding: 10px 12px; }
+  .stat-value { font-size: 16px; }
+
+  h2 { font-size: 18px; }
+  h3 { font-size: 15px; }
+
+  .card-title { font-size: 18px; }
+  .header-subject { font-size: 16px; }
 }

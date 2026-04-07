@@ -78,6 +78,7 @@
 
     @media (max-width: 600px) {
       .form-row { grid-template-columns: 1fr; }
+      .form-two-col { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -100,7 +101,7 @@
   <!-- Page -->
   <main class="page page-narrow">
     <!-- Form Card -->
-    <section class="card" id="form-card">
+    <section class="card form-card" id="form-card">
       <h2 class="card-title">Contact Support</h2>
       <p class="card-sub">Alex will respond to your request within 5 minutes.</p>
 
@@ -115,7 +116,7 @@
 
       <form id="support-form" novalidate>
         <!-- Row 1: Name + Email -->
-        <div class="form-row">
+        <div class="form-row form-two-col">
           <div>
             <label for="name" class="section-label">Full Name <span class="req">*</span></label>
             <input id="name" name="name" type="text" class="input" placeholder="Sarah Ahmed" autocomplete="name">
@@ -136,7 +137,7 @@
         </div>
 
         <!-- Row 3: Category + Priority -->
-        <div class="form-row">
+        <div class="form-row form-two-col">
           <div>
             <label for="category" class="section-label">Category <span class="req">*</span></label>
             <select id="category" name="category" class="select">
@@ -169,7 +170,7 @@
           <span class="field-error hidden" id="err-message"></span>
         </div>
 
-        <button type="submit" class="btn btn-primary btn-full" id="submit-btn">
+        <button type="submit" class="btn btn-primary btn-full submit-btn" id="submit-btn">
           <span id="submit-text">Submit Support Request</span>
         </button>
       </form>
