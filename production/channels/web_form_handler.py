@@ -187,6 +187,157 @@ def map_priority_to_ticket(category: str, priority: str) -> str:
 
 
 # ─────────────────────────────────────────────────────────────
+# DIRECT AGENT PROCESSING (no Kafka)
+# ─────────────────────────────────────────────────────────────
+
+async def _process_directly(
+    customer_id: str,
+    customer_name: str,
+    customer_email: str,
+    content: str,
+    subject: str,
+    ticket_id: str,
+) -> None:
+    """
+    Runs the AI agent directly (no Kafka) for cloud deployments.
+    Replicates the essential steps of message_processor._process_message.
+    """
+    from agents import Runner
+    from production.agent import customer_success_agent, db_context, openai_context
+    from production.api.main import app as fastapi_app
+    from production.database.queries import (
+        get_or_create_conversation,
+        get_recent_messages,
+        get_customer_conversations,
+        insert_message,
+        update_ticket_conversation,
+        store_outbound_message,
+    )
+    from production.workers.message_processor import (
+        estimate_sentiment,
+        build_context_block,
+        extract_topics,
+    )
+
+    _process_start = datetime.now(timezone.utc)
+    channel = "web_form"
+
+    try:
+        db_pool = fastapi_app.state.db_pool
+        if not db_pool:
+            logger.error("Direct processing failed — no DB pool | ticket=%s", ticket_id)
+            return
+
+        async with db_pool.acquire() as db:
+            # ── 1. Get or create conversation ──────────────────
+            cust_uuid = uuid.UUID(customer_id)
+            conversation = await get_or_create_conversation(
+                db, customer_id=cust_uuid, channel=channel,
+            )
+            conv_id = conversation["id"]
+
+            # ── 2. Store inbound message ───────────────────────
+            await insert_message(
+                db,
+                conversation_id=conv_id,
+                direction="inbound",
+                channel=channel,
+                raw_content=content,
+                formatted_content=content,
+                delivery_status="delivered",
+            )
+
+            # ── 3. Link ticket to conversation ─────────────────
+            try:
+                await update_ticket_conversation(db, uuid.UUID(ticket_id), conv_id)
+            except Exception:
+                pass
+
+            # ── 4. Build context ───────────────────────────────
+            prior_msgs = await get_recent_messages(db, conv_id, limit=10)
+            history_turns = [
+                {
+                    "role":      m["direction"],
+                    "channel":   m["channel"],
+                    "content":   m["raw_content"],
+                    "timestamp": m["received_at"].strftime("%Y-%m-%d %H:%M"),
+                }
+                for m in prior_msgs
+            ]
+
+            prior_convs = await get_customer_conversations(db, cust_uuid, limit=5)
+            sentiment_score = estimate_sentiment(content)
+            current_topics = extract_topics(content)
+            channel_journey = [c["channel"] for c in prior_convs] + [channel]
+            channel_journey = list(dict.fromkeys(channel_journey))
+
+            context_block = build_context_block(
+                channel=channel,
+                customer_id=customer_id,
+                customer_name=customer_name,
+                canonical_id=customer_id,
+                sentiment=sentiment_score,
+                sentiment_history=[sentiment_score],
+                session_number=len(prior_convs) + 1,
+                session_id=str(conv_id),
+                channel_journey=channel_journey,
+                topics_discussed=[],
+                top_topics={},
+                current_topics=current_topics,
+                conversation_history=history_turns,
+                subject=subject,
+                new_message=content,
+            )
+
+        # ── 5. Inject context vars & run agent ─────────────
+        db_context.set(db_pool)
+
+        from openai import AsyncOpenAI
+        openai_client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
+        openai_context.set(openai_client)
+
+        logger.info("Running agent directly | ticket=%s | sentiment=%.2f", ticket_id, sentiment_score)
+
+        result = await Runner.run(customer_success_agent, input=context_block)
+        agent_output = result.final_output if hasattr(result, "final_output") else str(result)
+
+        # ── 6. Safety net — ensure response stored ─────────
+        if agent_output:
+            async with db_pool.acquire() as db:
+                tid = uuid.UUID(ticket_id)
+                existing = await db.fetchval(
+                    "SELECT COUNT(*) FROM messages WHERE ticket_id = $1 AND direction = 'outbound'",
+                    tid,
+                )
+                if existing == 0:
+                    logger.info("Safety net: storing agent reply | ticket=%s", ticket_id)
+                    _latency_ms = int((datetime.now(timezone.utc) - _process_start).total_seconds() * 1000)
+                    await store_outbound_message(
+                        db,
+                        conversation_id=conv_id,
+                        ticket_id=tid,
+                        customer_id=uuid.UUID(customer_id),
+                        channel=channel,
+                        raw_content=agent_output,
+                        formatted_content=agent_output,
+                        model_used="gpt-4o",
+                        latency_ms=_latency_ms,
+                        processing_started_at=_process_start,
+                    )
+                    await db.execute(
+                        "UPDATE messages SET delivery_status = 'delivered', delivered_at = NOW() "
+                        "WHERE ticket_id = $1 AND direction = 'outbound' AND delivery_status = 'pending'",
+                        tid,
+                    )
+
+        _latency = int((datetime.now(timezone.utc) - _process_start).total_seconds() * 1000)
+        logger.info("Direct processing complete | ticket=%s | latency=%dms", ticket_id, _latency)
+
+    except Exception as e:
+        logger.error("Direct processing failed | ticket=%s | error=%s", ticket_id, e, exc_info=True)
+
+
+# ─────────────────────────────────────────────────────────────
 # ENDPOINTS
 # ─────────────────────────────────────────────────────────────
 
@@ -269,11 +420,26 @@ async def submit_support_form(
             "customer_id": str(customer["id"]),
         }).encode("utf-8")
 
-        await kafka.send_and_wait(
-            "fte.channels.webform.inbound",
-            value=kafka_payload,
-            key=str(customer["id"]).encode("utf-8"),
-        )
+        if kafka:
+            await kafka.send_and_wait(
+                "fte.channels.webform.inbound",
+                value=kafka_payload,
+                key=str(customer["id"]).encode("utf-8"),
+            )
+        else:
+            # Direct agent processing — no Kafka needed
+            logger.info("Kafka unavailable — processing directly for ticket=%s", ticket_ref)
+            import asyncio
+            asyncio.create_task(
+                _process_directly(
+                    customer_id=str(customer["id"]),
+                    customer_name=submission.name,
+                    customer_email=str(submission.email),
+                    content=submission.message,
+                    subject=submission.subject,
+                    ticket_id=ticket_id,
+                )
+            )
 
         logger.info(
             "Web form submitted | ticket=%s | customer=%s | priority=%s | category=%s",

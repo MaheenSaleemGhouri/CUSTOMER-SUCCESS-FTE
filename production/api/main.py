@@ -185,17 +185,22 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("Kafka unavailable — running in degraded mode (no Kafka): %s", exc)
 
-    # ── PostgreSQL (required) ─────────────────────────────────
-    logger.info("Connecting to PostgreSQL …")
-    db_pool = await asyncpg.create_pool(
-        DATABASE_URL,
-        min_size=DB_POOL_MIN,
-        max_size=DB_POOL_MAX,
-    )
+    # ── PostgreSQL (best-effort for cloud deploy) ──────────────
+    db_pool = None
+    try:
+        logger.info("Connecting to PostgreSQL …")
+        db_pool = await asyncpg.create_pool(
+            DATABASE_URL,
+            min_size=DB_POOL_MIN,
+            max_size=DB_POOL_MAX,
+        )
+        logger.info("PostgreSQL ready.")
+    except Exception as exc:
+        logger.warning("PostgreSQL unavailable — running in degraded mode (no DB): %s", exc)
 
     app.state.kafka_client   = kafka_client
     app.state.kafka_producer = producer   # may be None in degraded mode
-    app.state.db_pool        = db_pool
+    app.state.db_pool        = db_pool    # may be None in degraded mode
 
     logger.info("Customer Success FTE API ready.")
     yield

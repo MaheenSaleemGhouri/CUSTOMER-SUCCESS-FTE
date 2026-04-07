@@ -1,7 +1,7 @@
 'use strict';
 
 // ─── Config ───────────────────────────────────────────────
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'https://maheenghouri-customer-success-fte.hf.space';
 const PAGE_SIZE = 15;
 
 let currentPage    = 1;
