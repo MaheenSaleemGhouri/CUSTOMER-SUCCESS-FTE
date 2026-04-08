@@ -241,7 +241,7 @@
       background: var(--cyan-500);
       border-radius: var(--radius-pill);
     }
-    .channel-count { font-size: 12px; color: var(--slate-400); white-space: nowrap; }
+    .channel-count { font-size: 12px; color: var(--slate-400); white-space: nowrap; min-width: 0; }
 
     .metrics-grid {
       display: grid;
@@ -256,12 +256,16 @@
       text-transform: uppercase;
       color: var(--slate-500);
       letter-spacing: 0.05em;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .metric-item .val {
       font-size: 18px;
       font-weight: 600;
       margin-top: 3px;
       color: var(--slate-200);
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .metric-item .val.cyan { color: var(--cyan-400); }
     .metric-item .val.red { color: #FCA5A5; }
@@ -379,159 +383,182 @@
       cursor: pointer;
     }
 
-    /* ── Tablet — 1024px ── */
+    /* ══════════════════════════════════════════════════════════
+       RESPONSIVE — single definitive block
+       ══════════════════════════════════════════════════════════ */
+
+    /* ── 1024px — Tablet landscape ── */
     @media (max-width: 1024px) {
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .panel-row { grid-template-columns: 1fr; }
-      .kb-grid { grid-template-columns: 1fr; }
+      .kb-grid   { grid-template-columns: 1fr; }
     }
 
-    /* ── Tablet — 768px ── */
+    /* ── 768px — Tablet portrait ── */
     @media (max-width: 768px) {
-      /* Global overflow control */
-      .page-wide { max-width: 100vw; overflow-x: hidden; }
-      main.page { overflow-x: hidden; }
-      .card { overflow: hidden; word-break: break-word; }
+      /* === ROOT CONTAINMENT — prevents ALL horizontal overflow === */
+      html, body       { overflow-x: hidden !important; width: 100% !important; }
+      main.page        { overflow-x: hidden !important; max-width: 100vw !important; }
+      .page-wide       { padding-left: 12px !important; padding-right: 12px !important; max-width: 100% !important; }
+      .card            { overflow: hidden !important; word-break: break-word; min-width: 0 !important; }
 
-      .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-      .stat-card { padding: 12px; overflow: hidden; }
-      .stat-value { font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .stat-label { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .stat-sub { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-      .filter-bar { flex-wrap: wrap; gap: 8px; padding: 12px; }
-      .filter-search { width: 100%; margin-left: 0; }
-      .tickets-table { min-width: 600px; }
-      .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-      .panel-row { gap: 12px; }
-
-      .kb-header { flex-direction: column; align-items: flex-start; }
-      .kb-header-right { width: 100%; }
-      .kb-header-right .input, .kb-header-right .select { width: 100%; }
-
-      .metrics-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-      .metric-item .val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .metric-item .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-      .channel-row .badge { min-width: 70px; text-align: center; overflow: hidden; text-overflow: ellipsis; }
-      .channel-count { overflow: hidden; text-overflow: ellipsis; }
-
-      .esc-info .subject { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .kb-article .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-      .refresh-timer { display: none; }
-    }
-
-    /* ── Mobile — 480px ── */
-    @media (max-width: 480px) {
-      /* Force no horizontal overflow */
-      body { overflow-x: hidden; }
-      .page-wide { padding-left: 8px; padding-right: 8px; }
-      .card { padding: 14px; overflow: hidden; }
+      /* Topbar */
+      .refresh-timer   { display: none; }
 
       /* Stats */
-      .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-      .stat-card { padding: 10px; min-width: 0; }
-      .stat-value { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .stat-label { font-size: 9px; letter-spacing: 0.03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .stat-sub { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .stats-grid      { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .stat-card       { padding: 12px; }
+      .stat-value      { font-size: 20px; }
+      .stat-label      { font-size: 10px; }
+      .stat-sub        { font-size: 11px; }
 
-      /* Filter pills — horizontal scroll */
-      .filter-bar {
-        overflow-x: auto;
-        flex-wrap: nowrap;
-        padding: 10px 12px;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-      }
-      .filter-bar::-webkit-scrollbar { display: none; }
-      .filter-pill { white-space: nowrap; flex-shrink: 0; font-size: 11px; padding: 4px 10px; }
-      .filter-group { flex-wrap: nowrap; }
+      /* Filters */
+      .filter-bar      { flex-wrap: wrap; gap: 8px; padding: 12px; }
+      .filter-search   { width: 100%; margin-left: 0; }
 
-      /* Table — hide columns + overflow */
-      .table-card { overflow-x: auto; max-width: 100%; }
-      .tickets-table th:nth-child(3),
-      .tickets-table td:nth-child(3) { display: none; }
-      .tickets-table th:nth-child(7),
-      .tickets-table td:nth-child(7) { display: none; }
-      .tickets-table th:nth-child(8),
-      .tickets-table td:nth-child(8) { display: none; }
-      .tickets-table th { font-size: 10px; padding: 8px 6px; }
-      .tickets-table td { font-size: 12px; padding: 8px 6px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .tickets-table .td-id { font-size: 10px; }
-      .tickets-table .td-customer .name { font-size: 12px; }
-      .tickets-table .td-customer .plan { font-size: 10px; }
-      .tickets-table .td-subject { max-width: 100px; }
+      /* Table — scrollable wrapper */
+      .table-card      { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+      .tickets-table   { min-width: 580px; }
 
-      /* Pagination */
-      .pagination { padding: 10px 12px; flex-wrap: wrap; }
-      .pagination .info { display: none; }
-      .pag-group { gap: 4px; }
-      .pag-btn { padding: 4px 8px; font-size: 11px; }
+      /* Panels stack */
+      .panel-row       { gap: 12px; }
 
-      /* Channel Analytics */
-      .channel-row { gap: 6px; padding: 8px 0; }
-      .channel-row .badge { width: 60px; min-width: 60px; font-size: 9px; padding: 2px 4px; overflow: hidden; text-overflow: ellipsis; }
-      .progress-bar { min-width: 0; flex: 1; }
-      .channel-count { font-size: 11px; min-width: 30px; }
-
-      /* Metrics */
-      .metrics-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
-      .metric-item .lbl { font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .metric-item .val { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-      /* Escalation items */
-      .esc-item { gap: 8px; padding: 8px 0; }
-      .esc-icon { width: 28px; height: 28px; min-width: 28px; }
-      .esc-info { min-width: 0; }
-      .esc-info .subject { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .esc-info .meta { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-      /* KB */
-      .kb-header-right { flex-direction: column; width: 100%; }
-      .kb-header-right .input, .kb-header-right .select { width: 100%; font-size: 12px; padding: 6px 8px; }
-      .kb-article { gap: 6px; padding: 7px 0; min-width: 0; }
-      .kb-article .title { font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .kb-article .mini-bar { width: 40px; min-width: 40px; }
-      .kb-article .hits { font-size: 9px; padding: 1px 6px; white-space: nowrap; }
-      .coverage-labels { font-size: 11px; }
-      .kb-footer { font-size: 12px; }
-
-      /* Auth modal */
-      .auth-card { padding: 20px; max-width: calc(100vw - 24px); }
-      .auth-overlay { padding: 12px; }
-
-      /* Headings inside cards */
-      h3 { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      /* KB header stack */
+      .kb-header       { flex-direction: column; align-items: flex-start; }
+      .kb-header-right { width: 100%; }
+      .kb-header-right .input,
+      .kb-header-right .select { width: 100% !important; }
     }
 
-    /* ── Small Mobile — 375px ── */
+    /* ── 480px — Mobile ── */
+    @media (max-width: 480px) {
+      /* Tighter padding */
+      .page-wide       { padding-left: 8px !important; padding-right: 8px !important; }
+      .card            { padding: 12px !important; }
+
+      /* === UNIVERSAL TEXT OVERFLOW FIX === */
+      .stat-value,
+      .stat-label,
+      .stat-sub,
+      .metric-item .val,
+      .metric-item .lbl,
+      .channel-count,
+      .esc-info .subject,
+      .esc-info .meta,
+      .kb-article .title,
+      .pagination .info,
+      .tickets-table td,
+      .td-subject,
+      .td-customer .name,
+      .td-customer .plan,
+      .td-id,
+      h3 {
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+      }
+
+      /* Stats */
+      .stats-grid      { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+      .stat-card       { padding: 10px !important; min-width: 0 !important; }
+      .stat-value      { font-size: 17px !important; }
+      .stat-label      { font-size: 9px !important; letter-spacing: 0.03em; }
+      .stat-sub        { font-size: 10px !important; }
+
+      /* Filters — horizontal scroll */
+      .filter-bar      { overflow-x: auto; flex-wrap: nowrap !important; padding: 10px 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+      .filter-bar::-webkit-scrollbar { display: none; }
+      .filter-group    { flex-wrap: nowrap !important; }
+      .filter-pill     { white-space: nowrap; flex-shrink: 0; font-size: 11px; padding: 4px 10px; }
+      .filter-search   { width: 100% !important; margin-left: 0 !important; font-size: 13px !important; }
+
+      /* Table — hide Subject, Sentiment, Response columns */
+      .tickets-table th:nth-child(3),
+      .tickets-table td:nth-child(3),
+      .tickets-table th:nth-child(7),
+      .tickets-table td:nth-child(7),
+      .tickets-table th:nth-child(8),
+      .tickets-table td:nth-child(8) { display: none !important; }
+      .tickets-table th { font-size: 9px !important; padding: 8px 5px !important; }
+      .tickets-table td { font-size: 11px !important; padding: 8px 5px !important; max-width: 100px; }
+      .td-id           { font-size: 9px !important; }
+      .td-customer .name { font-size: 11px !important; }
+      .td-customer .plan { font-size: 9px !important; }
+      .td-subject      { max-width: 80px !important; }
+
+      /* Pagination */
+      .pagination      { padding: 8px; flex-wrap: wrap; }
+      .pagination .info { display: none !important; }
+      .pag-group       { gap: 4px; }
+      .pag-btn         { padding: 4px 8px; font-size: 11px; }
+
+      /* Channel Analytics */
+      .channel-row     { gap: 6px; padding: 8px 0; }
+      .channel-row .badge { width: 58px !important; min-width: 58px; font-size: 9px !important; padding: 2px 4px; }
+      .progress-bar    { min-width: 0; flex: 1; }
+      .channel-count   { font-size: 11px; min-width: 28px; }
+
+      /* Metrics */
+      .metrics-grid    { grid-template-columns: 1fr 1fr; gap: 6px; }
+      .metric-item .lbl { font-size: 9px !important; }
+      .metric-item .val { font-size: 15px !important; }
+
+      /* Escalation */
+      .esc-item        { gap: 8px; padding: 8px 0; }
+      .esc-icon        { width: 26px !important; height: 26px !important; min-width: 26px; }
+      .esc-info        { min-width: 0 !important; }
+      .esc-info .subject { font-size: 12px !important; }
+      .esc-info .meta  { font-size: 10px !important; }
+
+      /* KB */
+      .kb-header-right { flex-direction: column; width: 100% !important; }
+      .kb-header-right .input,
+      .kb-header-right .select { width: 100% !important; font-size: 12px !important; padding: 6px 8px !important; }
+      .kb-article      { gap: 6px; padding: 7px 0; min-width: 0 !important; }
+      .kb-article .title { font-size: 12px !important; }
+      .kb-article .mini-bar { width: 36px !important; min-width: 36px; }
+      .kb-article .hits { font-size: 9px; padding: 1px 5px; }
+      .coverage-labels { font-size: 11px; }
+      .kb-footer       { font-size: 12px; }
+
+      /* Auth */
+      .auth-card       { padding: 18px !important; max-width: calc(100vw - 24px) !important; }
+      .auth-overlay    { padding: 12px; }
+
+      /* Headings */
+      h3               { font-size: 14px !important; }
+
+      /* Inline style overrides for p tags inside cards */
+      .card p          { font-size: 11px !important; word-break: break-word; }
+    }
+
+    /* ── 375px — Small mobile (iPhone SE) ── */
     @media (max-width: 375px) {
-      .page-wide { padding-left: 6px; padding-right: 6px; }
-      .card { padding: 10px; }
+      .page-wide       { padding-left: 6px !important; padding-right: 6px !important; }
+      .card            { padding: 8px !important; border-radius: 8px !important; }
 
-      .stats-grid { gap: 4px; }
-      .stat-card { padding: 8px 6px; }
-      .stat-value { font-size: 15px; }
-      .stat-label { font-size: 8px; }
-      .stat-sub { font-size: 9px; }
+      .stats-grid      { gap: 4px; }
+      .stat-card       { padding: 7px 5px !important; }
+      .stat-value      { font-size: 14px !important; }
+      .stat-label      { font-size: 8px !important; }
+      .stat-sub        { font-size: 8px !important; }
 
-      .metric-item .val { font-size: 13px; }
-      .metric-item .lbl { font-size: 8px; }
+      .metric-item .val { font-size: 13px !important; }
+      .metric-item .lbl { font-size: 8px !important; }
 
-      .tickets-table th { font-size: 9px; padding: 6px 4px; }
-      .tickets-table td { font-size: 10px; padding: 6px 4px; max-width: 80px; }
+      .tickets-table th { font-size: 8px !important; padding: 6px 3px !important; }
+      .tickets-table td { font-size: 9px !important; padding: 6px 3px !important; max-width: 70px !important; }
 
-      .channel-row .badge { width: 52px; min-width: 52px; font-size: 8px; }
-      .channel-count { font-size: 10px; }
+      .channel-row .badge { width: 48px !important; min-width: 48px !important; font-size: 8px !important; }
+      .channel-count   { font-size: 9px !important; }
 
-      .esc-info .subject { font-size: 11px; }
-      .kb-article .title { font-size: 11px; }
-      .kb-article .mini-bar { width: 30px; min-width: 30px; }
+      .esc-info .subject { font-size: 11px !important; }
+      .kb-article .title { font-size: 11px !important; }
+      .kb-article .mini-bar { width: 24px !important; min-width: 24px !important; }
 
-      h3 { font-size: 13px; }
-      .auth-card { padding: 14px; }
-      .filter-pill { font-size: 10px; padding: 3px 8px; }
+      h3               { font-size: 12px !important; }
+      .auth-card       { padding: 12px !important; }
+      .filter-pill     { font-size: 10px !important; padding: 3px 7px !important; }
     }
   </style>
 </head>
