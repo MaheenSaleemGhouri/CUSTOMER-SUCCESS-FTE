@@ -471,6 +471,29 @@ img, video { max-width: 100%; height: auto; }
 /* ─── Mobile — 480px and below ─────────────────────────── */
 @media (max-width: 480px) {
 
+  /* Root containment — prevents any horizontal scroll on mobile */
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  /* All cards fully contained — no overflow beyond viewport */
+  .card {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  /* KB panel — prevent horizontal overflow and left-clip of titles */
+  .kb-grid,
+  .kb-article,
+  .kb-article .title {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    word-break: break-word;
+  }
+
   /* Topbar */
   .topbar { height: 52px; }
   .brand-icon { width: 24px; height: 24px; font-size: 12px; }
