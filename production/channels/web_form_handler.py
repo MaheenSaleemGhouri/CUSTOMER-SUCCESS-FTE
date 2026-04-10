@@ -202,8 +202,6 @@ async def _process_directly(
     Runs the AI agent directly (no Kafka) for cloud deployments.
     Replicates the essential steps of message_processor._process_message.
     """
-    from agents import Runner
-    from production.agent import customer_success_agent, db_context, openai_context
     from production.api.main import app as fastapi_app
     from production.database.queries import (
         get_or_create_conversation,
@@ -212,10 +210,11 @@ async def _process_directly(
         insert_message,
         update_ticket_conversation,
         store_outbound_message,
+        vector_search_kb,
+        fulltext_search_kb,
     )
     from production.workers.message_processor import (
         estimate_sentiment,
-        build_context_block,
         extract_topics,
     )
 
@@ -268,68 +267,107 @@ async def _process_directly(
             ]
 
             sentiment_score = estimate_sentiment(content)
-            current_topics = extract_topics(content)
-            channel_journey = [c["channel"] for c in prior_convs] + [channel]
-            channel_journey = list(dict.fromkeys(channel_journey))
 
-            context_block = build_context_block(
-                channel=channel,
-                customer_id=customer_id,
-                customer_name=customer_name,
-                canonical_id=customer_id,
-                sentiment=sentiment_score,
-                sentiment_history=[sentiment_score],
-                session_number=len(prior_convs) + 1,
-                session_id=str(conv_id),
-                channel_journey=channel_journey,
-                topics_discussed=[],
-                top_topics={},
-                current_topics=current_topics,
-                conversation_history=history_turns,
-                subject=subject,
-                new_message=content,
-            )
+            # ── 5. KB search (inline, single DB + embedding call) ──
+            kb_results: list[dict] = []
+            try:
+                from openai import AsyncOpenAI as _AsyncOpenAI
+                _kb_client = _AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
+                kb_query = f"{subject}\n{content}"[:500]
+                try:
+                    emb = await _kb_client.embeddings.create(
+                        model="text-embedding-3-small",
+                        input=kb_query,
+                    )
+                    vec = emb.data[0].embedding
+                    rows = await vector_search_kb(db, vec, top_k=3)
+                except Exception as _ve:
+                    logger.warning("KB vector search failed, using FTS | err=%s", _ve)
+                    rows = await fulltext_search_kb(db, kb_query, top_k=3)
+                kb_results = [
+                    {"title": r["title"], "content": r["content"][:600], "category": r["category"]}
+                    for r in (rows or [])
+                ]
+            except Exception as _kb_err:
+                logger.warning("KB search skipped | err=%s", _kb_err)
 
-        # ── 5. Inject context vars & run agent ─────────────
-        db_context.set(db_pool)
-
+        # ── 6. Single LLM call — fast path (no agent tool loop) ──
         from openai import AsyncOpenAI
         openai_client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
-        openai_context.set(openai_client)
 
-        logger.info("Running agent directly | ticket=%s | sentiment=%.2f", ticket_id, sentiment_score)
+        history_text = "\n".join(
+            f"[{h['timestamp']}] {h['role']}: {h['content'][:300]}"
+            for h in history_turns[-5:]
+        ) or "(no prior messages)"
 
-        result = await Runner.run(customer_success_agent, input=context_block)
-        agent_output = result.final_output if hasattr(result, "final_output") else str(result)
+        kb_text = "\n\n".join(
+            f"### {i+1}. {kb['title']} ({kb['category']})\n{kb['content']}"
+            for i, kb in enumerate(kb_results)
+        ) or "(no relevant KB articles found)"
 
-        # ── 6. Safety net — ensure response stored ─────────
+        fast_system = (
+            "You are Alex, the Customer Success AI for TechCorp — a B2B SaaS project "
+            "management platform. You are responding to a WEB FORM submission.\n\n"
+            "RULES:\n"
+            "- Write 100-300 words, semi-formal, direct, clear.\n"
+            "- No greeting prefix (the form already shows the customer's name).\n"
+            "- Use the KB articles below if relevant. Cite them naturally — do NOT say 'according to KB'.\n"
+            "- NEVER quote prices, process refunds, or discuss legal matters. If asked, say our team "
+            "will follow up within 1 hour.\n"
+            "- NEVER mention competitors: Asana, Monday, Notion, ClickUp, Jira, Trello.\n"
+            "- NEVER promise feature delivery timelines.\n"
+            "- If the customer seems angry or requests a human, acknowledge and say a human agent "
+            "will follow up shortly.\n"
+            "- End with: 'Ticket reference: {ticket_ref}. You can track progress on the support portal.'"
+        )
+
+        fast_user = (
+            f"Customer name: {customer_name}\n"
+            f"Customer email: {customer_email}\n"
+            f"Ticket ID: {ticket_id}\n"
+            f"Subject: {subject}\n"
+            f"Sentiment: {sentiment_score:.2f} (-1 negative, +1 positive)\n\n"
+            f"--- Conversation history ---\n{history_text}\n\n"
+            f"--- Knowledge Base ---\n{kb_text}\n\n"
+            f"--- Current message ---\n{content}\n\n"
+            f"Write your response to the customer now."
+        )
+
+        logger.info("Fast-path LLM call | ticket=%s | kb_hits=%d", ticket_id, len(kb_results))
+
+        completion = await openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": fast_system},
+                {"role": "user", "content": fast_user},
+            ],
+            temperature=0.4,
+            max_tokens=500,
+        )
+        agent_output = completion.choices[0].message.content or ""
+
+        # ── 7. Store the response ──────────────────────────
         if agent_output:
             async with db_pool.acquire() as db:
                 tid = uuid.UUID(ticket_id)
-                existing = await db.fetchval(
-                    "SELECT COUNT(*) FROM messages WHERE conversation_id = $1 AND direction = 'outbound'",
-                    conv_id,
+                _latency_ms = int((datetime.now(timezone.utc) - _process_start).total_seconds() * 1000)
+                await store_outbound_message(
+                    db,
+                    conversation_id=conv_id,
+                    ticket_id=tid,
+                    customer_id=uuid.UUID(customer_id),
+                    channel=channel,
+                    raw_content=agent_output,
+                    formatted_content=agent_output,
+                    model_used="gpt-4o-mini",
+                    latency_ms=_latency_ms,
+                    processing_started_at=_process_start,
                 )
-                if existing == 0:
-                    logger.info("Safety net: storing agent reply | ticket=%s", ticket_id)
-                    _latency_ms = int((datetime.now(timezone.utc) - _process_start).total_seconds() * 1000)
-                    await store_outbound_message(
-                        db,
-                        conversation_id=conv_id,
-                        ticket_id=tid,
-                        customer_id=uuid.UUID(customer_id),
-                        channel=channel,
-                        raw_content=agent_output,
-                        formatted_content=agent_output,
-                        model_used="gpt-4o-mini",
-                        latency_ms=_latency_ms,
-                        processing_started_at=_process_start,
-                    )
-                    await db.execute(
-                        "UPDATE messages SET delivery_status = 'delivered', delivered_at = NOW() "
-                        "WHERE ticket_id = $1 AND direction = 'outbound' AND delivery_status = 'pending'",
-                        tid,
-                    )
+                await db.execute(
+                    "UPDATE messages SET delivery_status = 'delivered', delivered_at = NOW() "
+                    "WHERE ticket_id = $1 AND direction = 'outbound' AND delivery_status = 'pending'",
+                    tid,
+                )
 
         _latency = int((datetime.now(timezone.utc) - _process_start).total_seconds() * 1000)
         logger.info("Direct processing complete | ticket=%s | latency=%dms", ticket_id, _latency)
