@@ -202,6 +202,7 @@ async def _process_directly(
     Runs the AI agent directly (no Kafka) for cloud deployments.
     Replicates the essential steps of message_processor._process_message.
     """
+    import asyncio
     from agents import Runner
     from production.agent import customer_success_agent, db_context, openai_context
     from production.api.main import app as fastapi_app
@@ -236,25 +237,27 @@ async def _process_directly(
             )
             conv_id = conversation["id"]
 
-            # ── 2. Store inbound message ───────────────────────
-            await insert_message(
-                db,
-                conversation_id=conv_id,
-                direction="inbound",
-                channel=channel,
-                raw_content=content,
-                formatted_content=content,
-                delivery_status="delivered",
+            # ── 2. Store inbound + link ticket + fetch history — in parallel ──
+            await asyncio.gather(
+                insert_message(
+                    db,
+                    conversation_id=conv_id,
+                    direction="inbound",
+                    channel=channel,
+                    raw_content=content,
+                    formatted_content=content,
+                    delivery_status="delivered",
+                ),
+                update_ticket_conversation(db, uuid.UUID(ticket_id), conv_id),
+                return_exceptions=True,
             )
 
-            # ── 3. Link ticket to conversation ─────────────────
-            try:
-                await update_ticket_conversation(db, uuid.UUID(ticket_id), conv_id)
-            except Exception:
-                pass
+            # ── 3. Fetch history + prior convs in parallel ─────
+            prior_msgs, prior_convs = await asyncio.gather(
+                get_recent_messages(db, conv_id, limit=10),
+                get_customer_conversations(db, cust_uuid, limit=5),
+            )
 
-            # ── 4. Build context ───────────────────────────────
-            prior_msgs = await get_recent_messages(db, conv_id, limit=10)
             history_turns = [
                 {
                     "role":      m["direction"],
@@ -265,7 +268,6 @@ async def _process_directly(
                 for m in prior_msgs
             ]
 
-            prior_convs = await get_customer_conversations(db, cust_uuid, limit=5)
             sentiment_score = estimate_sentiment(content)
             current_topics = extract_topics(content)
             channel_journey = [c["channel"] for c in prior_convs] + [channel]
@@ -320,7 +322,7 @@ async def _process_directly(
                         channel=channel,
                         raw_content=agent_output,
                         formatted_content=agent_output,
-                        model_used="gpt-4o",
+                        model_used="gpt-4o-mini",
                         latency_ms=_latency_ms,
                         processing_started_at=_process_start,
                     )
