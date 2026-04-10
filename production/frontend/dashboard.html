@@ -434,36 +434,37 @@
     @media (max-width: 480px) {
       /* Tighter padding */
       .page-wide       { padding-left: 8px !important; padding-right: 8px !important; }
-      .card            { padding: 12px !important; }
+      .card            { padding: 12px !important; min-width: 0 !important; overflow: hidden !important; }
 
-      /* === UNIVERSAL TEXT OVERFLOW FIX === */
-      .stat-value,
-      .stat-label,
-      .stat-sub,
-      .metric-item .val,
-      .metric-item .lbl,
-      .channel-count,
-      .esc-info .subject,
-      .esc-info .meta,
-      .kb-article .title,
-      .pagination .info,
-      .tickets-table td,
-      .td-subject,
-      .td-customer .name,
-      .td-customer .plan,
-      .td-id,
-      h3 {
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
+      /* === UNIVERSAL WRAP RULE — allow text to wrap, never overflow === */
+      .stat-card, .stat-label, .stat-sub,
+      .metric-item, .metric-item .lbl,
+      .esc-info, .esc-info .subject, .esc-info .meta,
+      .kb-article, .kb-article .title,
+      .channel-row, .coverage-labels,
+      .card p, .card h3 {
+        min-width: 0 !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow-wrap: anywhere !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
       }
 
-      /* Stats */
+      /* Numeric values stay on one line */
+      .stat-value, .metric-item .val, .channel-count {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        min-width: 0 !important;
+      }
+
+      /* Stats — 2 columns, labels wrap */
       .stats-grid      { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-      .stat-card       { padding: 10px !important; min-width: 0 !important; }
-      .stat-value      { font-size: 17px !important; }
-      .stat-label      { font-size: 9px !important; letter-spacing: 0.03em; }
-      .stat-sub        { font-size: 10px !important; }
+      .stat-card       { padding: 10px 8px !important; min-width: 0 !important; text-align: left; }
+      .stat-value      { font-size: 18px !important; line-height: 1.1; margin-top: 4px; }
+      .stat-label      { font-size: 10px !important; letter-spacing: 0.02em; line-height: 1.25; }
+      .stat-sub        { font-size: 10px !important; line-height: 1.25; margin-top: 2px; }
 
       /* Filters — horizontal scroll */
       .filter-bar      { overflow-x: auto; flex-wrap: nowrap !important; padding: 10px 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
@@ -472,19 +473,20 @@
       .filter-pill     { white-space: nowrap; flex-shrink: 0; font-size: 11px; padding: 4px 10px; }
       .filter-search   { width: 100% !important; margin-left: 0 !important; font-size: 13px !important; }
 
-      /* Table — hide Subject, Sentiment, Response columns */
+      /* Table — horizontal scroll wrapper handles overflow */
+      .table-card      { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+      .tickets-table   { min-width: 560px; }
       .tickets-table th:nth-child(3),
       .tickets-table td:nth-child(3),
       .tickets-table th:nth-child(7),
       .tickets-table td:nth-child(7),
       .tickets-table th:nth-child(8),
       .tickets-table td:nth-child(8) { display: none !important; }
-      .tickets-table th { font-size: 9px !important; padding: 8px 5px !important; }
-      .tickets-table td { font-size: 11px !important; padding: 8px 5px !important; max-width: 100px; }
-      .td-id           { font-size: 9px !important; }
-      .td-customer .name { font-size: 11px !important; }
-      .td-customer .plan { font-size: 9px !important; }
-      .td-subject      { max-width: 80px !important; }
+      .tickets-table th { font-size: 10px !important; padding: 8px 6px !important; white-space: nowrap; }
+      .tickets-table td { font-size: 11px !important; padding: 8px 6px !important; white-space: nowrap; }
+      .td-id           { font-size: 10px !important; }
+      .td-customer .name { font-size: 11px !important; white-space: nowrap; }
+      .td-customer .plan { font-size: 9px !important; white-space: nowrap; }
 
       /* Pagination */
       .pagination      { padding: 8px; flex-wrap: wrap; }
@@ -535,29 +537,32 @@
     /* ── 375px — Small mobile (iPhone SE) ── */
     @media (max-width: 375px) {
       .page-wide       { padding-left: 6px !important; padding-right: 6px !important; }
-      .card            { padding: 8px !important; border-radius: 8px !important; }
+      .card            { padding: 10px 8px !important; border-radius: 8px !important; }
 
-      .stats-grid      { gap: 4px; }
-      .stat-card       { padding: 7px 5px !important; }
-      .stat-value      { font-size: 14px !important; }
-      .stat-label      { font-size: 8px !important; }
-      .stat-sub        { font-size: 8px !important; }
+      .stats-grid      { gap: 5px; }
+      .stat-card       { padding: 8px 6px !important; }
+      .stat-value      { font-size: 16px !important; }
+      .stat-label      { font-size: 9px !important; line-height: 1.2; }
+      .stat-sub        { font-size: 9px !important; line-height: 1.2; }
 
-      .metric-item .val { font-size: 13px !important; }
-      .metric-item .lbl { font-size: 8px !important; }
+      .metric-item .val { font-size: 14px !important; }
+      .metric-item .lbl { font-size: 9px !important; line-height: 1.2; }
 
-      .tickets-table th { font-size: 8px !important; padding: 6px 3px !important; }
-      .tickets-table td { font-size: 9px !important; padding: 6px 3px !important; max-width: 70px !important; }
+      .tickets-table   { min-width: 480px; }
+      .tickets-table th { font-size: 9px !important; padding: 6px 4px !important; }
+      .tickets-table td { font-size: 10px !important; padding: 6px 4px !important; }
 
-      .channel-row .badge { width: 48px !important; min-width: 48px !important; font-size: 8px !important; }
-      .channel-count   { font-size: 9px !important; }
+      .channel-row .badge { width: 52px !important; min-width: 52px !important; font-size: 8px !important; padding: 2px 4px !important; }
+      .channel-count   { font-size: 10px !important; }
 
       .esc-info .subject { font-size: 11px !important; }
+      .esc-info .meta  { font-size: 9px !important; }
       .kb-article .title { font-size: 11px !important; }
-      .kb-article .mini-bar { width: 24px !important; min-width: 24px !important; }
+      .kb-article .mini-bar { width: 28px !important; min-width: 28px !important; }
+      .kb-article .hits { font-size: 8px !important; padding: 1px 4px !important; }
 
-      h3               { font-size: 12px !important; }
-      .auth-card       { padding: 12px !important; }
+      h3               { font-size: 13px !important; }
+      .auth-card       { padding: 14px !important; }
       .filter-pill     { font-size: 10px !important; padding: 3px 7px !important; }
     }
   </style>
