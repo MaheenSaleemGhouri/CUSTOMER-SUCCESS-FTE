@@ -202,21 +202,18 @@ async def _process_directly(
     Runs the AI agent directly (no Kafka) for cloud deployments.
     Replicates the essential steps of message_processor._process_message.
     """
+    import asyncio
     from production.api.main import app as fastapi_app
     from production.database.queries import (
         get_or_create_conversation,
         get_recent_messages,
-        get_customer_conversations,
         insert_message,
         update_ticket_conversation,
         store_outbound_message,
         vector_search_kb,
         fulltext_search_kb,
     )
-    from production.workers.message_processor import (
-        estimate_sentiment,
-        extract_topics,
-    )
+    from production.workers.message_processor import estimate_sentiment
 
     _process_start = datetime.now(timezone.utc)
     channel = "web_form"
@@ -227,74 +224,69 @@ async def _process_directly(
             logger.error("Direct processing failed — no DB pool | ticket=%s", ticket_id)
             return
 
-        async with db_pool.acquire() as db:
-            # ── 1. Get or create conversation ──────────────────
-            cust_uuid = uuid.UUID(customer_id)
-            conversation = await get_or_create_conversation(
-                db, customer_id=cust_uuid, channel=channel,
-            )
-            conv_id = conversation["id"]
-
-            # ── 2. Store inbound message ───────────────────────
-            await insert_message(
-                db,
-                conversation_id=conv_id,
-                direction="inbound",
-                channel=channel,
-                raw_content=content,
-                formatted_content=content,
-                delivery_status="delivered",
-            )
-
-            # ── 3. Link ticket to conversation ─────────────────
-            try:
-                await update_ticket_conversation(db, uuid.UUID(ticket_id), conv_id)
-            except Exception:
-                pass
-
-            # ── 4. Fetch history ────────────────────────────────
-            prior_msgs = await get_recent_messages(db, conv_id, limit=10)
-            prior_convs = await get_customer_conversations(db, cust_uuid, limit=5)
-
-            history_turns = [
-                {
-                    "role":      m["direction"],
-                    "channel":   m["channel"],
-                    "content":   m["raw_content"],
-                    "timestamp": m["received_at"].strftime("%Y-%m-%d %H:%M"),
-                }
-                for m in prior_msgs
-            ]
-
-            sentiment_score = estimate_sentiment(content)
-
-            # ── 5. KB search (inline, single DB + embedding call) ──
-            kb_results: list[dict] = []
-            try:
-                from openai import AsyncOpenAI as _AsyncOpenAI
-                _kb_client = _AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
-                kb_query = f"{subject}\n{content}"[:500]
-                try:
-                    emb = await _kb_client.embeddings.create(
-                        model="text-embedding-3-small",
-                        input=kb_query,
-                    )
-                    vec = emb.data[0].embedding
-                    rows = await vector_search_kb(db, vec, top_k=3)
-                except Exception as _ve:
-                    logger.warning("KB vector search failed, using FTS | err=%s", _ve)
-                    rows = await fulltext_search_kb(db, kb_query, top_k=3)
-                kb_results = [
-                    {"title": r["title"], "content": r["content"][:600], "category": r["category"]}
-                    for r in (rows or [])
-                ]
-            except Exception as _kb_err:
-                logger.warning("KB search skipped | err=%s", _kb_err)
-
-        # ── 6. Single LLM call — fast path (no agent tool loop) ──
+        cust_uuid = uuid.UUID(customer_id)
         from openai import AsyncOpenAI
         openai_client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
 
+        # ── DB prep (single connection, sequential) + KB search (parallel) ──
+        async def _db_prep():
+            async with db_pool.acquire() as db:
+                conversation = await get_or_create_conversation(
+                    db, customer_id=cust_uuid, channel=channel,
+                )
+                _conv_id = conversation["id"]
+                await insert_message(
+                    db,
+                    conversation_id=_conv_id,
+                    direction="inbound",
+                    channel=channel,
+                    raw_content=content,
+                    formatted_content=content,
+                    delivery_status="delivered",
+                )
+                try:
+                    await update_ticket_conversation(db, uuid.UUID(ticket_id), _conv_id)
+                except Exception:
+                    pass
+                _prior = await get_recent_messages(db, _conv_id, limit=5)
+                return _conv_id, _prior
+
+        async def _kb_search():
+            kb_query = f"{subject}\n{content}"[:500]
+            try:
+                emb = await openai_client.embeddings.create(
+                    model="text-embedding-3-small",
+                    input=kb_query,
+                )
+                vec = emb.data[0].embedding
+                async with db_pool.acquire() as db2:
+                    rows = await vector_search_kb(db2, vec, top_k=3)
+            except Exception as _ve:
+                logger.warning("KB vector search failed, using FTS | err=%s", _ve)
+                async with db_pool.acquire() as db2:
+                    rows = await fulltext_search_kb(db2, kb_query, top_k=3)
+            return [
+                {"title": r["title"], "content": r["content"][:500], "category": r["category"]}
+                for r in (rows or [])
+            ]
+
+        (conv_id, prior_msgs), kb_results = await asyncio.gather(
+            _db_prep(), _kb_search(), return_exceptions=False,
+        )
+
+        history_turns = [
+            {
+                "role":      m["direction"],
+                "channel":   m["channel"],
+                "content":   m["raw_content"],
+                "timestamp": m["received_at"].strftime("%Y-%m-%d %H:%M"),
+            }
+            for m in prior_msgs
+        ]
+
+        sentiment_score = estimate_sentiment(content)
+
+        # ── Single LLM call — fast path (no agent tool loop) ──
         history_text = "\n".join(
             f"[{h['timestamp']}] {h['role']}: {h['content'][:300]}"
             for h in history_turns[-5:]
