@@ -1043,7 +1043,13 @@ async def ticket_websocket(ticket_id: str, websocket: WebSocket):
                 )
             if not row:
                 return None
-            msgs = row["messages"] or []
+            raw_msgs = row["messages"]
+            if raw_msgs is None:
+                msgs = []
+            elif isinstance(raw_msgs, str):
+                msgs = json.loads(raw_msgs)
+            else:
+                msgs = raw_msgs
             return {
                 "ticket_id":   str(row["id"]),
                 "ticket_ref":  row["ticket_ref"],

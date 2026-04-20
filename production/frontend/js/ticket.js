@@ -1,8 +1,13 @@
 'use strict';
 
 // ─── Config ───────────────────────────────────────────────
-const API_BASE = 'https://maheenghouri-customer-success-fte.hf.space';
-const WS_BASE  = 'wss://maheenghouri-customer-success-fte.hf.space';
+const _isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const API_BASE = _isLocal
+  ? 'http://localhost:8000'
+  : 'https://maheenghouri-customer-success-fte.hf.space';
+const WS_BASE  = _isLocal
+  ? 'ws://localhost:8000'
+  : 'wss://maheenghouri-customer-success-fte.hf.space';
 
 const ticketId = new URLSearchParams(window.location.search).get('id');
 

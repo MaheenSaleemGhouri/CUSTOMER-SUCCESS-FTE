@@ -1,642 +1,884 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard — TechCorp</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/theme.css">
-  <style>
-    /* Auth modal */
-    .auth-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(2, 6, 23, 0.85);
-      backdrop-filter: blur(4px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      padding: 20px;
-    }
-    .auth-card {
-      max-width: 400px;
-      width: 100%;
-      background: var(--slate-800);
-      border: 0.5px solid var(--slate-600);
-      border-radius: var(--radius-lg);
-      padding: 28px;
-      box-shadow: var(--shadow-card);
-    }
-    .auth-err { font-size: 12px; color: #FCA5A5; margin-top: 8px; }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>TechCorp FTE — Dashboard v2</title>
 
-    /* Topbar extras */
-    .refresh-timer { font-size: 12px; color: var(--slate-500); }
-    .refresh-btn {
-      background: transparent;
-      border: 1px solid var(--slate-600);
-      color: var(--slate-400);
-      width: 30px; height: 30px;
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
-      transition: all 150ms ease;
-    }
-    .refresh-btn:hover { color: var(--cyan-400); border-color: var(--cyan-700); }
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 
-    /* Stats bar */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    .stat-card {
-      background: var(--slate-800);
-      border: 0.5px solid var(--slate-600);
-      border-radius: var(--radius-md);
-      padding: 16px;
-      min-width: 0;
-      overflow: hidden;
-    }
-    .stat-label {
-      font-size: 11px;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--slate-400);
-    }
-    .stat-value {
-      font-size: 22px;
-      font-weight: 600;
-      margin-top: 4px;
-      color: var(--slate-100);
-    }
-    .stat-value.cyan { color: var(--cyan-400); }
-    .stat-value.green { color: #34D399; }
-    .stat-value.red { color: #FCA5A5; }
-    .stat-sub {
-      font-size: 12px;
-      color: var(--slate-500);
-      margin-top: 3px;
-    }
-    .stat-sub.green { color: #34D399; }
+<style>
+:root {
+  --bg-base:     #080B0F;
+  --bg-card:     #0E1117;
+  --bg-elevated: #141920;
+  --border:      #1E2733;
+  --border-glow: #0E7490;
 
-    /* Tickets table card */
-    .table-card {
-      background: var(--slate-800);
-      border: 0.5px solid var(--slate-600);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-card);
-      margin-bottom: 20px;
-      overflow: hidden;
-    }
-    .filter-bar {
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--slate-700);
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      flex-wrap: wrap;
-    }
-    .filter-group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-    .filter-pill {
-      background: transparent;
-      color: var(--slate-400);
-      border: 1px solid var(--slate-600);
-      border-radius: var(--radius-pill);
-      padding: 5px 12px;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 150ms ease;
-    }
-    .filter-pill:hover { background: var(--slate-700); }
-    .filter-pill.active {
-      background: var(--cyan-700);
-      color: var(--cyan-100);
-      border-color: var(--cyan-700);
-    }
-    .filter-search {
-      margin-left: auto;
-      width: 200px;
-      background: var(--slate-900);
-      border: 1px solid var(--slate-600);
-      border-radius: var(--radius-sm);
-      padding: 7px 12px;
-      font-size: 13px;
-      color: var(--slate-200);
-      outline: none;
-      font-family: 'DM Sans', sans-serif;
-    }
-    .filter-search::placeholder { color: var(--slate-500); }
-    .filter-search:focus { border-color: var(--cyan-500); }
+  --cyan-400: #22D3EE;
+  --cyan-500: #06B6D4;
+  --cyan-600: #0891B2;
+  --cyan-700: #0E7490;
+  --cyan-900: #164E63;
 
-    .tickets-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    .tickets-table th {
-      background: var(--slate-900);
-      font-size: 11px;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--slate-400);
-      padding: 10px 16px;
-      border-bottom: 1px solid var(--slate-700);
-      text-align: left;
-    }
-    .tickets-table td {
-      padding: 12px 16px;
-      border-bottom: 0.5px solid var(--slate-700);
-      font-size: 13px;
-      color: var(--slate-200);
-      transition: background 100ms ease;
-    }
-    .tickets-table tr:hover td { background: rgba(6, 182, 212, 0.04); }
-    .tickets-table .td-id {
-      font-family: 'DM Mono', monospace;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--cyan-400);
-    }
-    .tickets-table .td-customer .name { font-size: 14px; font-weight: 500; color: var(--slate-100); }
-    .tickets-table .td-customer .plan { font-size: 12px; color: var(--slate-500); }
-    .tickets-table .td-subject {
-      max-width: 240px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .sentiment-bar {
-      width: 60px;
-      height: 6px;
-      background: var(--slate-700);
-      border-radius: var(--radius-pill);
-      overflow: hidden;
-    }
-    .sentiment-bar > div {
-      height: 100%;
-      border-radius: var(--radius-pill);
-    }
+  --text-primary:   #F0F6FF;
+  --text-secondary: #8B9BB4;
+  --text-muted:     #4A5568;
 
-    .pagination {
-      padding: 12px 16px;
-      border-top: 1px solid var(--slate-700);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .pagination .info { font-size: 12px; color: var(--slate-500); }
-    .pag-btn {
-      background: var(--slate-800);
-      color: var(--slate-400);
-      border: 1px solid var(--slate-600);
-      padding: 5px 11px;
-      border-radius: var(--radius-sm);
-      font-size: 12px;
-      cursor: pointer;
-      transition: all 150ms ease;
-    }
-    .pag-btn:hover:not(:disabled) { background: var(--slate-700); }
-    .pag-btn.active {
-      background: var(--cyan-700);
-      color: var(--cyan-100);
-      border-color: var(--cyan-700);
-    }
-    .pag-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .pag-group { display: flex; gap: 6px; align-items: center; }
+  --green:  #10B981;
+  --red:    #EF4444;
+  --amber:  #F59E0B;
+  --purple: #8B5CF6;
+}
 
-    /* Two column panel */
-    .panel-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 20px;
-    }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { overflow-x: hidden; max-width: 100vw; }
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
 
-    .channel-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 0;
-      border-bottom: 0.5px solid var(--slate-700);
-    }
-    .channel-row:last-child { border-bottom: none; }
-    .channel-row .badge { width: 80px; text-align: center; }
-    .progress-bar {
-      flex: 1;
-      height: 6px;
-      background: var(--slate-700);
-      border-radius: var(--radius-pill);
-      overflow: hidden;
-    }
-    .progress-bar > div {
-      height: 100%;
-      background: var(--cyan-500);
-      border-radius: var(--radius-pill);
-    }
-    .channel-count { font-size: 12px; color: var(--slate-400); white-space: nowrap; min-width: 0; }
+/* ── TOPBAR ───────────────────────────────────────── */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: 56px;
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.tb-left, .tb-right { display: flex; align-items: center; gap: 12px; }
 
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-      margin-top: 14px;
-      padding-top: 14px;
-      border-top: 1px solid var(--slate-700);
-    }
-    .metric-item .lbl {
-      font-size: 11px;
-      text-transform: uppercase;
-      color: var(--slate-500);
-      letter-spacing: 0.05em;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .metric-item .val {
-      font-size: 18px;
-      font-weight: 600;
-      margin-top: 3px;
-      color: var(--slate-200);
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .metric-item .val.cyan { color: var(--cyan-400); }
-    .metric-item .val.red { color: #FCA5A5; }
+.logo-chip {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--cyan-700);
+  display: grid; place-items: center;
+  color: #fff; font-weight: 700; font-size: 15px;
+}
+.brand {
+  font-size: 15px; font-weight: 600; color: var(--text-primary);
+}
+.brand-sub {
+  font-size: 11px; color: var(--text-secondary); margin-left: 2px;
+}
+.tb-sep {
+  width: 1px; height: 20px; background: var(--border); margin: 0 10px;
+}
+.nav-tabs { display: flex; gap: 4px; }
+.nav-tab {
+  padding: 6px 12px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  position: relative;
+  transition: color 150ms ease;
+}
+.nav-tab:hover { color: var(--text-primary); }
+.nav-tab.active { color: var(--cyan-400); }
+.nav-tab.active::after {
+  content: ''; position: absolute;
+  left: 12px; right: 12px; bottom: -10px;
+  height: 2px; background: var(--cyan-400); border-radius: 2px;
+}
 
-    /* Escalation inbox */
-    .esc-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 0;
-      border-bottom: 0.5px solid var(--slate-700);
-    }
-    .esc-item:last-child { border-bottom: none; }
-    .esc-icon {
-      width: 32px; height: 32px;
-      border-radius: 50%;
-      background: var(--slate-700);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-    .esc-info { flex: 1; min-width: 0; overflow: hidden; }
-    .esc-info .subject {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--slate-100);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .esc-info .meta { font-size: 11px; color: var(--slate-500); margin-top: 2px; }
+.live-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px;
+  background: rgba(16,185,129,0.12);
+  border: 1px solid rgba(16,185,129,0.25);
+  border-radius: 999px;
+  color: var(--green); font-size: 12px; font-weight: 500;
+}
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--cyan-700);
+  color: #fff; font-size: 12px; font-weight: 600;
+  display: grid; place-items: center;
+}
 
-    /* KB panel */
-    .kb-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 14px;
-    }
-    .kb-header-left { display: flex; align-items: center; gap: 10px; }
-    .kb-header-right { display: flex; gap: 8px; }
-    .kb-header-right .input, .kb-header-right .select { width: 180px; font-size: 13px; padding: 7px 10px; }
+/* ── SHELL ───────────────────────────────────────── */
+.shell {
+  padding: 80px 24px 40px;
+  max-width: 1440px; margin: 0 auto;
+}
+.crumb {
+  font-size: 12px; color: var(--text-secondary);
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 6px;
+}
+.crumb .sep { color: var(--text-muted); }
+.crumb .current { color: var(--text-primary); font-weight: 500; }
+.crumb-right {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 10px;
+  font-size: 11px; color: var(--text-muted);
+}
+.crumb-wrap { display: flex; align-items: center; }
 
-    .coverage-block {
-      margin-bottom: 16px;
-    }
-    .coverage-labels {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      margin-bottom: 6px;
-    }
-    .coverage-labels .left { color: var(--slate-400); }
-    .coverage-labels .right { color: var(--cyan-400); }
-    .coverage-bar {
-      height: 8px;
-      background: var(--slate-700);
-      border-radius: var(--radius-pill);
-      overflow: hidden;
-    }
-    .coverage-bar > div {
-      height: 100%;
-      background: var(--cyan-500);
-      border-radius: var(--radius-pill);
-      transition: width 300ms ease;
-    }
+/* ── STAT CARDS ───────────────────────────────────── */
+.stats-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+  margin-bottom: 16px;
+}
+.stat-card {
+  position: relative; overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  transition: border-color 200ms ease, transform 200ms ease;
+  animation: fadeUp 0.3s ease-out both;
+}
+.stat-card:hover { border-color: var(--border-glow); }
+.stat-card:nth-child(1) { animation-delay: 0.05s; }
+.stat-card:nth-child(2) { animation-delay: 0.10s; }
+.stat-card:nth-child(3) { animation-delay: 0.15s; }
+.stat-card:nth-child(4) { animation-delay: 0.20s; }
 
-    .kb-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0 24px;
-    }
-    .kb-article {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 0;
-      border-bottom: 0.5px solid var(--slate-700);
-    }
-    .kb-article .title {
-      flex: 1;
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--slate-200);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .kb-article .mini-bar {
-      width: 80px;
-      height: 4px;
-      background: var(--slate-700);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .kb-article .mini-bar > div {
-      height: 100%;
-      background: var(--cyan-600);
-      border-radius: 2px;
-    }
-    .kb-article .hits {
-      background: var(--cyan-900);
-      color: var(--cyan-400);
-      font-size: 10px;
-      padding: 2px 8px;
-      border-radius: var(--radius-pill);
-    }
-    .kb-footer {
-      margin-top: 12px;
-      font-size: 13px;
-      color: var(--cyan-500);
-      cursor: pointer;
-    }
+.stat-label {
+  font-size: 11px; letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.stat-value {
+  font-size: 32px; font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 8px;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: -0.02em;
+}
+.stat-value.amber { color: var(--amber); }
+.stat-value.cyan  { color: var(--cyan-400); }
 
-    /* ══════════════════════════════════════════════════════════
-       RESPONSIVE — single definitive block
-       ══════════════════════════════════════════════════════════ */
+.stat-trend {
+  margin-top: 12px;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px;
+}
+.trend-up   { color: var(--green); display: inline-flex; align-items: center; gap: 3px; }
+.trend-down { color: var(--red);   display: inline-flex; align-items: center; gap: 3px; }
+.trend-note { color: var(--text-muted); font-size: 11px; }
 
-    /* ── 1024px — Tablet landscape ── */
-    @media (max-width: 1024px) {
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .panel-row { grid-template-columns: 1fr; }
-      .kb-grid   { grid-template-columns: 1fr; }
-    }
+.stat-icon-bg {
+  position: absolute; top: 10px; right: 10px;
+  width: 64px; height: 64px;
+  opacity: 0.06;
+  color: var(--text-primary);
+}
+.stat-card.cyan-accent .stat-icon-bg { color: var(--cyan-400); opacity: 0.10; }
+.stat-card.amber-accent .stat-icon-bg { color: var(--amber); opacity: 0.10; }
 
-    /* ── 768px — Tablet portrait ── */
-    @media (max-width: 768px) {
-      /* === ROOT CONTAINMENT — prevents ALL horizontal overflow === */
-      html, body       { overflow-x: hidden !important; width: 100% !important; }
-      main.page        { overflow-x: hidden !important; max-width: 100vw !important; }
-      .page-wide       { padding-left: 12px !important; padding-right: 12px !important; max-width: 100% !important; }
-      .card            { overflow: hidden !important; word-break: break-word; min-width: 0 !important; }
+/* ── CHARTS ROW ───────────────────────────────────── */
+.charts-row {
+  display: grid; grid-template-columns: 2fr 1fr; gap: 16px;
+  margin-bottom: 16px;
+}
+.panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+.panel-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.panel-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.panel-sub   { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.panel-badge {
+  background: rgba(6,182,212,0.15);
+  color: var(--cyan-400);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px; font-weight: 500;
+  font-family: 'DM Mono', monospace;
+}
+.panel-badge.red   { background: rgba(239,68,68,0.15);  color: var(--red); }
+.panel-badge.green { background: rgba(16,185,129,0.15); color: var(--green); }
+.panel-badge.amber { background: rgba(245,158,11,0.15); color: var(--amber); }
 
-      /* Topbar */
-      .refresh-timer   { display: none; }
+.chart-wrap { position: relative; height: 200px; }
+.donut-wrap {
+  position: relative;
+  width: 100%; max-width: 180px;
+  margin: 8px auto 0;
+}
+.donut-center {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  pointer-events: none;
+}
+.donut-center .num {
+  font-size: 22px; font-weight: 700; color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+.donut-center .lbl {
+  font-size: 10px; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+.legend {
+  margin-top: 16px; display: flex; flex-direction: column; gap: 8px;
+}
+.leg-row {
+  display: grid; grid-template-columns: 14px 1fr auto auto;
+  align-items: center; gap: 10px;
+  font-size: 12px; color: var(--text-secondary);
+}
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; }
+.leg-count { font-family: 'DM Mono', monospace; color: var(--text-primary); }
+.leg-pct   { color: var(--text-muted); font-family: 'DM Mono', monospace; }
 
-      /* Stats */
-      .stats-grid      { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-      .stat-card       { padding: 12px; }
-      .stat-value      { font-size: 20px; }
-      .stat-label      { font-size: 10px; }
-      .stat-sub        { font-size: 11px; }
+/* ── TICKETS TABLE ────────────────────────────────── */
+.table-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.table-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.table-head h3 {
+  font-size: 14px; font-weight: 600; color: var(--text-primary);
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.count-chip {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px; font-weight: 500;
+  padding: 2px 8px; border-radius: 999px;
+  font-family: 'DM Mono', monospace;
+}
+.table-head .spacer { flex: 1; }
+.search-input {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 6px 10px; border-radius: 6px;
+  font-size: 13px; font-family: inherit;
+  width: 180px;
+}
+.search-input::placeholder { color: var(--text-muted); }
+.search-input:focus { outline: none; border-color: var(--cyan-700); }
+.filter-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 6px 10px; border-radius: 6px;
+  font-size: 13px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.filter-btn:hover { color: var(--text-primary); }
 
-      /* Filters */
-      .filter-bar      { flex-wrap: wrap; gap: 8px; padding: 12px; }
-      .filter-search   { width: 100%; margin-left: 0; }
+.filter-pills {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.pill {
+  padding: 5px 12px;
+  font-size: 12px; font-weight: 500;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  background: transparent;
+  transition: all 150ms ease;
+}
+.pill:hover { color: var(--text-primary); }
+.pill.active {
+  background: var(--cyan-700);
+  color: #E0FBFF;
+  border-color: var(--cyan-600);
+}
 
-      /* Table — scrollable wrapper */
-      .table-card      { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
-      .tickets-table   { min-width: 580px; }
+.table-wrapper { overflow-x: auto; }
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.data-table thead th {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 11px; font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.data-table tbody td {
+  padding: 12px 20px;
+  font-size: 13px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+}
+.data-table tbody tr:last-child td { border-bottom: 0; }
+.data-table tbody tr:hover td { background: rgba(14,116,144,0.06); }
+.td-id { font-family: 'DM Mono', monospace; color: var(--cyan-500); font-size: 12px; }
+.td-subject {
+  max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cust-name { font-size: 13px; color: var(--text-primary); }
+.cust-tier { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.td-time { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
 
-      /* Panels stack */
-      .panel-row       { gap: 12px; }
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px;
+  font-size: 11px; font-weight: 500;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.b-open        { background: rgba(6,182,212,0.15);  color: var(--cyan-400); }
+.b-in-progress { background: rgba(245,158,11,0.15); color: var(--amber); }
+.b-escalated   { background: rgba(239,68,68,0.15);  color: var(--red); }
+.b-resolved    { background: rgba(16,185,129,0.15); color: var(--green); }
+.b-email       { background: rgba(6,182,212,0.15);  color: var(--cyan-400); }
+.b-whatsapp    { background: rgba(16,185,129,0.15); color: var(--green); }
+.b-web         { background: rgba(139,92,246,0.15); color: var(--purple); }
+.b-high        { background: rgba(239,68,68,0.15);  color: var(--red); }
+.b-medium      { background: rgba(245,158,11,0.15); color: var(--amber); }
+.b-low         { background: rgba(6,182,212,0.12);  color: var(--cyan-400); }
 
-      /* KB header stack */
-      .kb-header       { flex-direction: column; align-items: flex-start; }
-      .kb-header-right { width: 100%; }
-      .kb-header-right .input,
-      .kb-header-right .select { width: 100% !important; }
-    }
+.pagination {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+}
+.page-info { font-size: 12px; color: var(--text-secondary); font-family: 'DM Mono', monospace; }
+.page-btns { display: flex; gap: 6px; }
+.page-btn {
+  width: 30px; height: 30px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  transition: all 150ms ease;
+}
+.page-btn:hover { color: var(--text-primary); border-color: var(--cyan-700); }
+.page-btn.active {
+  background: var(--cyan-700);
+  color: #E0FBFF;
+  border-color: var(--cyan-600);
+}
 
-    /* ── 480px — Mobile ── */
-    @media (max-width: 480px) {
-      /* Tighter padding */
-      .page-wide       { padding-left: 8px !important; padding-right: 8px !important; }
-      .card            { padding: 12px !important; min-width: 0 !important; overflow: hidden !important; }
+/* ── BOTTOM ROW ───────────────────────────────────── */
+.bottom-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
 
-      /* === UNIVERSAL WRAP RULE — allow text to wrap, never overflow === */
-      .stat-card, .stat-label, .stat-sub,
-      .metric-item, .metric-item .lbl,
-      .esc-info, .esc-info .subject, .esc-info .meta,
-      .kb-article, .kb-article .title,
-      .channel-row, .coverage-labels,
-      .card p, .card h3 {
-        min-width: 0 !important;
-        white-space: normal !important;
-        word-break: break-word !important;
-        overflow-wrap: anywhere !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
-      }
+.esc-item {
+  display: grid; grid-template-columns: 36px 1fr auto;
+  gap: 12px; align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.esc-item:last-child { border-bottom: 0; }
+.esc-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: var(--bg-elevated);
+  display: grid; place-items: center;
+  color: var(--red);
+}
+.esc-icon.amber { color: var(--amber); }
+.esc-icon.green { color: var(--green); }
+.esc-sub {
+  font-size: 13px; font-weight: 500; color: var(--text-primary);
+  max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.esc-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-family: 'DM Mono', monospace; }
+.team-tag {
+  font-size: 11px; font-weight: 500;
+  padding: 3px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.team-billing { background: rgba(245,158,11,0.15); color: var(--amber); }
+.team-legal   { background: rgba(239,68,68,0.15);  color: var(--red); }
+.team-sales   { background: rgba(16,185,129,0.15); color: var(--green); }
+.team-bugs    { background: rgba(139,92,246,0.15); color: var(--purple); }
 
-      /* Numeric values stay on one line */
-      .stat-value, .metric-item .val, .channel-count {
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        min-width: 0 !important;
-      }
+.kb-coverage {
+  margin-top: 4px; margin-bottom: 18px;
+}
+.cov-labels {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12px; color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.cov-bar {
+  height: 6px; background: var(--bg-elevated); border-radius: 3px; overflow: hidden;
+}
+.cov-fill {
+  height: 100%; background: linear-gradient(90deg, var(--cyan-600), var(--cyan-400));
+  border-radius: 3px;
+  transition: width 600ms ease;
+}
+.cov-stat { color: var(--cyan-400); font-family: 'DM Mono', monospace; }
 
-      /* Stats — 2 columns, labels wrap */
-      .stats-grid      { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-      .stat-card       { padding: 10px 8px !important; min-width: 0 !important; text-align: left; }
-      .stat-value      { font-size: 18px !important; line-height: 1.1; margin-top: 4px; }
-      .stat-label      { font-size: 10px !important; letter-spacing: 0.02em; line-height: 1.25; }
-      .stat-sub        { font-size: 10px !important; line-height: 1.25; margin-top: 2px; }
+.kb-item {
+  display: grid; grid-template-columns: 1fr 60px auto;
+  gap: 12px; align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.kb-item:last-child { border-bottom: 0; }
+.kb-title {
+  font-size: 13px; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.kb-mini-bar {
+  width: 60px; height: 3px; background: var(--bg-elevated); border-radius: 2px; overflow: hidden;
+}
+.kb-mini-fill { height: 100%; background: var(--cyan-600); border-radius: 2px; }
+.kb-hits {
+  background: rgba(6,182,212,0.15);
+  color: var(--cyan-400);
+  font-size: 10px; font-weight: 500;
+  padding: 2px 8px; border-radius: 999px;
+  font-family: 'DM Mono', monospace;
+  white-space: nowrap;
+}
 
-      /* Filters — horizontal scroll */
-      .filter-bar      { overflow-x: auto; flex-wrap: nowrap !important; padding: 10px 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-      .filter-bar::-webkit-scrollbar { display: none; }
-      .filter-group    { flex-wrap: nowrap !important; }
-      .filter-pill     { white-space: nowrap; flex-shrink: 0; font-size: 11px; padding: 4px 10px; }
-      .filter-search   { width: 100% !important; margin-left: 0 !important; font-size: 13px !important; }
+/* ── Glassmorphism Cards ──────────────────────────── */
+.glass-card {
+  background: rgba(14, 17, 23, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(34, 211, 238, 0.12);
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+}
+.glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(34,211,238,0.3), transparent);
+  z-index: 1;
+}
+.header-glow {
+  position: absolute;
+  top: -20px; left: -20px;
+  width: 120px; height: 80px;
+  border-radius: 50%;
+  opacity: 0.06;
+  filter: blur(20px);
+  pointer-events: none;
+}
 
-      /* Table — horizontal scroll wrapper handles overflow */
-      .table-card      { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
-      .tickets-table   { min-width: 560px; }
-      .tickets-table th:nth-child(3),
-      .tickets-table td:nth-child(3),
-      .tickets-table th:nth-child(7),
-      .tickets-table td:nth-child(7),
-      .tickets-table th:nth-child(8),
-      .tickets-table td:nth-child(8) { display: none !important; }
-      .tickets-table th { font-size: 10px !important; padding: 8px 6px !important; white-space: nowrap; }
-      .tickets-table td { font-size: 11px !important; padding: 8px 6px !important; white-space: nowrap; }
-      .td-id           { font-size: 10px !important; }
-      .td-customer .name { font-size: 11px !important; white-space: nowrap; }
-      .td-customer .plan { font-size: 9px !important; white-space: nowrap; }
+/* ── Escalation Rows ──────────────────────────────── */
+.esc-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  transition: background 150ms ease, filter 150ms ease;
+  cursor: pointer;
+}
+.esc-row:last-of-type { margin-bottom: 0; }
+.esc-row:hover { filter: brightness(1.1); }
 
-      /* Pagination */
-      .pagination      { padding: 8px; flex-wrap: wrap; }
-      .pagination .info { display: none !important; }
-      .pag-group       { gap: 4px; }
-      .pag-btn         { padding: 4px 8px; font-size: 11px; }
+.esc-row-billing { background: rgba(245,158,11,0.04); border: 1px solid rgba(245,158,11,0.12); }
+.esc-row-sales   { background: rgba(16,185,129,0.04); border: 1px solid rgba(16,185,129,0.12); }
+.esc-row-legal   { background: rgba(239,68,68,0.04);  border: 1px solid rgba(239,68,68,0.12);  }
 
-      /* Channel Analytics */
-      .channel-row     { gap: 6px; padding: 8px 0; }
-      .channel-row .badge { width: 58px !important; min-width: 58px; font-size: 9px !important; padding: 2px 4px; }
-      .progress-bar    { min-width: 0; flex: 1; }
-      .channel-count   { font-size: 11px; min-width: 28px; }
+.esc-icon {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.esc-icon-billing { background: rgba(245,158,11,0.12); }
+.esc-icon-sales   { background: rgba(16,185,129,0.12); }
+.esc-icon-legal   { background: rgba(239,68,68,0.12);  }
 
-      /* Metrics */
-      .metrics-grid    { grid-template-columns: 1fr 1fr; gap: 6px; }
-      .metric-item .lbl { font-size: 9px !important; }
-      .metric-item .val { font-size: 15px !important; }
+.esc-subject {
+  font-size: 13px; font-weight: 500;
+  color: #E2E8F0; margin-bottom: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.esc-meta { font-size: 11px; color: #4A5568; }
+.esc-meta b { color: #22D3EE; font-weight: 500; font-family: 'DM Mono', monospace; }
 
-      /* Escalation */
-      .esc-item        { gap: 8px; padding: 8px 0; }
-      .esc-icon        { width: 26px !important; height: 26px !important; min-width: 26px; }
-      .esc-info        { min-width: 0 !important; }
-      .esc-info .subject { font-size: 12px !important; }
-      .esc-info .meta  { font-size: 10px !important; }
+/* ── Mini Sparkline ───────────────────────────────── */
+.mini-chart-wrap {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  background: rgba(8,11,15,0.6);
+  border: 1px solid rgba(30,39,51,0.8);
+  border-radius: 10px;
+  margin-top: 12px;
+}
+.sparkline {
+  display: flex; align-items: flex-end; gap: 3px; height: 24px;
+}
+.spark-bar {
+  width: 4px; border-radius: 2px;
+  background: rgba(239,68,68,0.35);
+}
+.spark-bar.active { background: #EF4444; }
 
-      /* KB */
-      .kb-header-right { flex-direction: column; width: 100% !important; }
-      .kb-header-right .input,
-      .kb-header-right .select { width: 100% !important; font-size: 12px !important; padding: 6px 8px !important; }
-      .kb-article      { gap: 6px; padding: 7px 0; min-width: 0 !important; }
-      .kb-article .title { font-size: 12px !important; }
-      .kb-article .mini-bar { width: 36px !important; min-width: 36px; }
-      .kb-article .hits { font-size: 9px; padding: 1px 5px; }
-      .coverage-labels { font-size: 11px; }
-      .kb-footer       { font-size: 12px; }
+/* ── KB Coverage ──────────────────────────────────── */
+.coverage-section {
+  padding: 12px 14px;
+  background: rgba(6,182,212,0.05);
+  border: 1px solid rgba(6,182,212,0.1);
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+.coverage-top {
+  display: flex; justify-content: space-between;
+  align-items: center; margin-bottom: 8px;
+}
+.coverage-lbl { font-size: 11px; color: #8B9BB4; }
+.coverage-num {
+  font-size: 13px; font-weight: 700;
+  color: #22D3EE; font-family: 'DM Mono', monospace;
+}
+.coverage-section .cov-bar {
+  height: 6px; background: rgba(30,39,51,0.8);
+  border-radius: 999px; overflow: hidden;
+}
+.coverage-section .cov-fill {
+  height: 100%; width: 94%;
+  background: linear-gradient(90deg, #0E7490, #22D3EE);
+  border-radius: 999px;
+}
 
-      /* Auth */
-      .auth-card       { padding: 18px !important; max-width: calc(100vw - 24px) !important; }
-      .auth-overlay    { padding: 12px; }
+/* ── KB Article Rows ──────────────────────────────── */
+.kb-article-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(30,39,51,0.6);
+}
+.kb-article-row:last-of-type { border-bottom: none; }
 
-      /* Headings */
-      h3               { font-size: 14px !important; }
+.kb-rank-num {
+  width: 22px; height: 22px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; flex-shrink: 0;
+  font-family: 'DM Mono', monospace;
+}
+.kb-rank-1 { background: rgba(34,211,238,0.15); color: #22D3EE; }
+.kb-rank-2 { background: rgba(6,182,212,0.12);  color: #06B6D4; }
+.kb-rank-3 { background: rgba(14,116,144,0.12); color: #0E7490; }
+.kb-rank-n { background: rgba(30,39,51,0.8);    color: #4A5568; }
 
-      /* Inline style overrides for p tags inside cards */
-      .card p          { font-size: 11px !important; word-break: break-word; }
-    }
+.kb-article-title {
+  flex: 1; font-size: 12px; color: #CBD5E1; font-weight: 400;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.kb-mini-track {
+  width: 60px; height: 4px;
+  background: rgba(30,39,51,0.8); border-radius: 999px; overflow: hidden;
+  flex-shrink: 0;
+}
+.kb-mini-fill { height: 100%; border-radius: 999px; }
 
-    /* ── 375px — Small mobile (iPhone SE) ── */
-    @media (max-width: 375px) {
-      .page-wide       { padding-left: 6px !important; padding-right: 6px !important; }
-      .card            { padding: 10px 8px !important; border-radius: 8px !important; }
+.kb-hits-badge {
+  font-size: 10px; font-weight: 600; color: #22D3EE;
+  background: rgba(6,182,212,0.1);
+  border: 1px solid rgba(6,182,212,0.15);
+  padding: 2px 8px; border-radius: 999px;
+  min-width: 56px; text-align: center;
+  font-family: 'DM Mono', monospace;
+  flex-shrink: 0;
+}
 
-      .stats-grid      { gap: 5px; }
-      .stat-card       { padding: 8px 6px !important; }
-      .stat-value      { font-size: 16px !important; }
-      .stat-label      { font-size: 9px !important; line-height: 1.2; }
-      .stat-sub        { font-size: 9px !important; line-height: 1.2; }
+/* ── KB Mini Donut ────────────────────────────────── */
+.kb-donut-wrap {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  background: rgba(8,11,15,0.6);
+  border: 1px solid rgba(30,39,51,0.8);
+  border-radius: 10px;
+  margin-top: 12px;
+}
+.donut-legend-item {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
+}
+.donut-legend-item:last-child { margin-bottom: 0; }
+.donut-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.donut-legend-text { font-size: 11px; color: #8B9BB4; flex: 1; }
+.donut-legend-pct { font-size: 11px; font-weight: 600; font-family: 'DM Mono', monospace; }
 
-      .metric-item .val { font-size: 14px !important; }
-      .metric-item .lbl { font-size: 9px !important; line-height: 1.2; }
+.view-all-link {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; color: #06B6D4;
+  margin-top: 10px; cursor: pointer;
+  width: fit-content;
+  transition: color 150ms ease;
+}
+.view-all-link:hover { color: #22D3EE; }
 
-      .tickets-table   { min-width: 480px; }
-      .tickets-table th { font-size: 9px !important; padding: 6px 4px !important; }
-      .tickets-table td { font-size: 10px !important; padding: 6px 4px !important; }
+/* ── Pill badges ──────────────────────────────────── */
+.pill-open-count {
+  font-size: 11px; font-weight: 700; padding: 3px 10px;
+  border-radius: 999px; letter-spacing: 0.04em;
+  background: rgba(239,68,68,0.15); color: #F87171;
+  border: 1px solid rgba(239,68,68,0.2);
+}
+.pill-articles-count {
+  font-size: 11px; font-weight: 700; padding: 3px 10px;
+  border-radius: 999px; letter-spacing: 0.04em;
+  background: rgba(6,182,212,0.15); color: #22D3EE;
+  border: 1px solid rgba(6,182,212,0.2);
+}
+.pill-team {
+  font-size: 10px; font-weight: 700; padding: 3px 10px;
+  border-radius: 999px; letter-spacing: 0.05em; white-space: nowrap;
+}
+.pill-billing { background: rgba(245,158,11,0.15); color: #FCD34D; border: 1px solid rgba(245,158,11,0.2); }
+.pill-sales   { background: rgba(16,185,129,0.15); color: #34D399; border: 1px solid rgba(16,185,129,0.2); }
+.pill-legal   { background: rgba(239,68,68,0.15);  color: #F87171; border: 1px solid rgba(239,68,68,0.2); }
 
-      .channel-row .badge { width: 52px !important; min-width: 52px !important; font-size: 8px !important; padding: 2px 4px !important; }
-      .channel-count   { font-size: 10px !important; }
+/* ── ANIMATIONS ───────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+  0%,100% { opacity: 1; }
+  50%     { opacity: 0.4; }
+}
 
-      .esc-info .subject { font-size: 11px !important; }
-      .esc-info .meta  { font-size: 9px !important; }
-      .kb-article .title { font-size: 11px !important; }
-      .kb-article .mini-bar { width: 28px !important; min-width: 28px !important; }
-      .kb-article .hits { font-size: 8px !important; padding: 1px 4px !important; }
-
-      h3               { font-size: 13px !important; }
-      .auth-card       { padding: 14px !important; }
-      .filter-pill     { font-size: 10px !important; padding: 3px 7px !important; }
-    }
-  </style>
+/* ── RESPONSIVE ──────────────────────────────────── */
+@media (max-width: 1024px) {
+  .charts-row { grid-template-columns: 1fr; }
+  .td-subject { max-width: 200px; }
+}
+@media (max-width: 768px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .charts-row { grid-template-columns: 1fr; }
+  .bottom-row { grid-template-columns: 1fr; }
+  .nav-tabs { display: none; }
+  .tb-sep { display: none; }
+  .table-wrapper { overflow-x: auto; }
+  .data-table { min-width: 580px; }
+  .shell { padding: 72px 16px 32px; }
+  .search-input { width: 120px; }
+}
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat-value { font-size: 24px; }
+  body { font-size: 14px; }
+  .brand-sub { display: none; }
+  .panel, .stat-card, .table-head, .filter-pills, .data-table thead th, .data-table tbody td, .pagination { padding-left: 12px; padding-right: 12px; }
+  .stat-card { padding: 14px; }
+  .stat-icon-bg { width: 48px; height: 48px; }
+  .shell { padding: 72px 12px 24px; }
+  .table-head { flex-wrap: wrap; }
+  .table-head .spacer { display: none; }
+  .search-input { flex: 1; width: auto; }
+}
+</style>
 </head>
 <body>
-  <!-- Auth Modal -->
-  <div class="auth-overlay" id="auth-overlay">
-    <div class="auth-card auth-modal">
-      <h3 style="font-size:18px;color:var(--slate-100);">Admin Access</h3>
-      <p style="font-size:13px;color:var(--slate-400);margin-top:4px;margin-bottom:18px;">Enter your API key to continue</p>
-      <label for="auth-key" class="section-label">X-Admin-Key</label>
-      <input id="auth-key" type="password" class="input" placeholder="Enter admin API key">
-      <div id="auth-err" class="auth-err hidden">Invalid key</div>
-      <button type="button" id="auth-submit" class="btn btn-primary btn-full" style="margin-top: 16px;">
-        Access Dashboard
-      </button>
+
+<!-- ── TOPBAR ───────────────────────────────────── -->
+<header class="topbar">
+  <div class="tb-left">
+    <div class="logo-chip">T</div>
+    <div>
+      <div class="brand">TechCorp <span class="brand-sub">· Alex AI Agent</span></div>
+    </div>
+    <span class="tb-sep"></span>
+    <nav class="nav-tabs">
+      <button class="nav-tab active">Dashboard</button>
+      <button class="nav-tab">Tickets</button>
+      <button class="nav-tab">Knowledge Base</button>
+      <button class="nav-tab">Settings</button>
+    </nav>
+  </div>
+  <div class="tb-right">
+    <span class="live-badge"><span class="live-dot"></span> Live</span>
+    <div class="avatar">JD</div>
+  </div>
+</header>
+
+<main class="shell">
+
+  <!-- Breadcrumb -->
+  <div class="crumb-wrap">
+    <div class="crumb">
+      <span>Dashboard</span>
+      <span class="sep">›</span>
+      <span class="current">Overview</span>
+    </div>
+    <div class="crumb-right">
+      <span id="refresh-timer">Refreshes in 30s</span>
     </div>
   </div>
 
-  <!-- Topbar -->
-  <header class="topbar">
-    <div class="topbar-brand">
-      <div class="brand-icon">T</div>
-      <div>
-        <div class="brand-name">TechCorp</div>
-        <div class="brand-tagline">Admin Dashboard</div>
+  <!-- ── STAT CARDS ───────────────────────────────── -->
+  <section class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Tickets</div>
+      <div class="stat-value" id="stat-total">1,247</div>
+      <div class="stat-trend">
+        <span class="trend-up">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+          8.3%
+        </span>
+        <span class="trend-note">vs last month</span>
+      </div>
+      <svg class="stat-icon-bg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M2 9a2 2 0 012-2h16a2 2 0 012 2v2a2 2 0 000 4v2a2 2 0 01-2 2H4a2 2 0 01-2-2v-2a2 2 0 000-4V9z"/>
+        <path d="M10 7v10M14 7v10" stroke-dasharray="2 2"/>
+      </svg>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">Open Tickets</div>
+      <div class="stat-value" id="stat-open">84</div>
+      <div class="stat-trend">
+        <span class="trend-up">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          2.1%
+        </span>
+        <span class="trend-note">vs last month</span>
+      </div>
+      <svg class="stat-icon-bg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M22 12h-6l-2 3h-4l-2-3H2"/>
+        <path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/>
+      </svg>
+    </div>
+
+    <div class="stat-card amber-accent">
+      <div class="stat-label">Escalated</div>
+      <div class="stat-value amber" id="stat-esc">12</div>
+      <div class="stat-trend">
+        <span class="trend-up">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+          0.96%
+        </span>
+        <span class="trend-note">escalation rate</span>
+      </div>
+      <svg class="stat-icon-bg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </div>
+
+    <div class="stat-card cyan-accent">
+      <div class="stat-label">AI Resolved</div>
+      <div class="stat-value cyan" id="stat-ai">724</div>
+      <div class="stat-trend">
+        <span class="trend-up">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+          58%
+        </span>
+        <span class="trend-note">auto-resolve rate</span>
+      </div>
+      <svg class="stat-icon-bg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="7" width="18" height="13" rx="2"/>
+        <path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/>
+        <circle cx="9" cy="13" r="1" fill="currentColor"/>
+        <circle cx="15" cy="13" r="1" fill="currentColor"/>
+        <path d="M9 17h6"/>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ── CHARTS ROW ─────────────────────────────── -->
+  <section class="charts-row">
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">Ticket Volume</div>
+          <div class="panel-sub">Last 7 days</div>
+        </div>
+        <span class="panel-badge">+23 today</span>
+      </div>
+      <div class="chart-wrap"><canvas id="volumeChart"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">Channel Split</div>
+          <div class="panel-sub">Current distribution</div>
+        </div>
+      </div>
+      <div class="donut-wrap">
+        <canvas id="channelChart" width="180" height="180"></canvas>
+        <div class="donut-center">
+          <div>
+            <div class="num" id="donut-total">1,247</div>
+            <div class="lbl">Total</div>
+          </div>
+        </div>
+      </div>
+      <div class="legend" id="channel-legend">
+        <div class="leg-row">
+          <span class="leg-dot" style="background:#06B6D4"></span>
+          <span>Email</span>
+          <span class="leg-count">621</span>
+          <span class="leg-pct">49.8%</span>
+        </div>
+        <div class="leg-row">
+          <span class="leg-dot" style="background:#10B981"></span>
+          <span>WhatsApp</span>
+          <span class="leg-count">328</span>
+          <span class="leg-pct">26.3%</span>
+        </div>
+        <div class="leg-row">
+          <span class="leg-dot" style="background:#8B5CF6"></span>
+          <span>Web Form</span>
+          <span class="leg-count">298</span>
+          <span class="leg-pct">23.9%</span>
+        </div>
       </div>
     </div>
-    <div class="topbar-right">
-      <span class="refresh-timer" id="refresh-timer">Auto-refresh in 30s</span>
-      <button class="refresh-btn" id="refresh-btn" title="Refresh now">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="23 4 23 10 17 10"></polyline>
-          <polyline points="1 20 1 14 7 14"></polyline>
-          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-        </svg>
+  </section>
+
+  <!-- ── TICKETS TABLE ──────────────────────────── -->
+  <section class="table-card">
+    <div class="table-head">
+      <h3>Recent Tickets <span class="count-chip" id="ticket-count">84</span></h3>
+      <span class="spacer"></span>
+      <input class="search-input" type="text" placeholder="Search tickets…" id="table-search" />
+      <button class="filter-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Filter
       </button>
-      <a href="index.html" style="text-decoration:none;cursor:pointer;color:var(--cyan-400);font-size:13px;font-weight:500;">Support Form</a>
-    </div>
-  </header>
-
-  <main class="page page-wide">
-    <!-- Stats -->
-    <div class="stats-grid" id="stats-grid">
-      <div class="stat-card"><div class="stat-label">Total Tickets</div><div class="stat-value cyan" id="stat-total">—</div><div class="stat-sub green" id="stat-total-sub">—</div></div>
-      <div class="stat-card"><div class="stat-label">Open</div><div class="stat-value" id="stat-open">—</div><div class="stat-sub" id="stat-open-sub">—</div></div>
-      <div class="stat-card"><div class="stat-label">In Progress</div><div class="stat-value" id="stat-progress">—</div><div class="stat-sub" id="stat-progress-sub">—</div></div>
-      <div class="stat-card"><div class="stat-label">Escalated</div><div class="stat-value red" id="stat-escalated">—</div><div class="stat-sub" id="stat-escalated-sub">—</div></div>
-      <div class="stat-card"><div class="stat-label">Resolved</div><div class="stat-value green" id="stat-resolved">—</div><div class="stat-sub" id="stat-resolved-sub">—</div></div>
-      <div class="stat-card"><div class="stat-label">AI Resolved</div><div class="stat-value cyan" id="stat-ai">—</div><div class="stat-sub" id="stat-ai-sub">—</div></div>
-      <div class="stat-card"><div class="stat-label">KB Coverage</div><div class="stat-value green" id="stat-kb">—</div><div class="stat-sub" id="stat-kb-sub">—</div></div>
-      <div class="stat-card"><div class="stat-label">Avg Sentiment</div><div class="stat-value green" id="stat-sentiment">—</div><div class="stat-sub" id="stat-sentiment-sub">—</div></div>
     </div>
 
-    <!-- Tickets table -->
-    <div class="table-card">
-      <div class="filter-bar">
-        <div class="filter-group" id="status-filters">
-          <button class="filter-pill active" data-status="">All</button>
-          <button class="filter-pill" data-status="open">Open</button>
-          <button class="filter-pill" data-status="in_progress">In Progress</button>
-          <button class="filter-pill" data-status="escalated">Escalated</button>
-          <button class="filter-pill" data-status="resolved">Resolved</button>
-        </div>
-        <div class="filter-group" id="channel-filters">
-          <button class="filter-pill active" data-channel="">All</button>
-          <button class="filter-pill" data-channel="email">Email</button>
-          <button class="filter-pill" data-channel="whatsapp">WhatsApp</button>
-          <button class="filter-pill" data-channel="web_form">Web Form</button>
-        </div>
-        <input type="text" id="ticket-search" class="filter-search" placeholder="Search tickets...">
-      </div>
+    <div class="filter-pills" id="filter-pills">
+      <button class="pill active" data-filter="all">All</button>
+      <button class="pill" data-filter="open">Open</button>
+      <button class="pill" data-filter="in_progress">In Progress</button>
+      <button class="pill" data-filter="escalated">Escalated</button>
+      <button class="pill" data-filter="resolved">Resolved</button>
+    </div>
 
-      <table class="tickets-table">
+    <div class="table-wrapper">
+      <table class="data-table">
         <thead>
           <tr>
             <th>Ticket ID</th>
@@ -645,83 +887,493 @@
             <th>Channel</th>
             <th>Status</th>
             <th>Priority</th>
-            <th>Sentiment</th>
-            <th>Response</th>
+            <th>Time</th>
           </tr>
         </thead>
-        <tbody id="tickets-tbody">
-          <tr><td colspan="8" style="text-align:center;color:var(--slate-500);padding:24px;">Loading tickets…</td></tr>
+        <tbody id="tickets-body">
+          <!-- filled by JS -->
         </tbody>
       </table>
+    </div>
 
-      <div class="pagination">
-        <div class="info" id="pag-info">—</div>
-        <div class="pag-group" id="pag-group"></div>
+    <div class="pagination">
+      <div class="page-info" id="page-info">Showing 1–10 of 84</div>
+      <div class="page-btns">
+        <button class="page-btn" aria-label="Prev">‹</button>
+        <button class="page-btn active">1</button>
+        <button class="page-btn">2</button>
+        <button class="page-btn">3</button>
+        <button class="page-btn">…</button>
+        <button class="page-btn">9</button>
+        <button class="page-btn" aria-label="Next">›</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── BOTTOM ROW ─────────────────────────────── -->
+  <section class="bottom-row">
+
+    <!-- ESCALATION INBOX -->
+    <div class="glass-card">
+      <div class="header-glow" style="background:#EF4444;"></div>
+      <div class="card-header" style="padding:18px 20px 14px; border-bottom:1px solid rgba(30,39,51,0.8); display:flex; align-items:flex-start; justify-content:space-between; position:relative;">
+        <div>
+          <div class="card-title" style="font-size:14px; font-weight:600; color:#F0F6FF;">Escalation Inbox</div>
+          <div class="card-sub" style="font-size:11px; color:#4A5568; margin-top:2px;">Routed to human teams</div>
+        </div>
+        <span class="pill-open-count">3 OPEN</span>
+      </div>
+      <div style="padding:14px 20px 18px;">
+
+        <div class="esc-row esc-row-billing">
+          <div class="esc-icon esc-icon-billing">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div class="esc-subject">Refund request for annual plan</div>
+            <div class="esc-meta"><b>TKT-10245</b> · Priya Sharma · 21m ago</div>
+          </div>
+          <span class="pill-team pill-billing">BILLING</span>
+        </div>
+
+        <div class="esc-row esc-row-sales">
+          <div class="esc-icon esc-icon-sales">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87m-4-12a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div class="esc-subject">Pricing inquiry for 200 seats</div>
+            <div class="esc-meta"><b>TKT-10241</b> · Nora Hassan · 2h ago</div>
+          </div>
+          <span class="pill-team pill-sales">SALES</span>
+        </div>
+
+        <div class="esc-row esc-row-legal">
+          <div class="esc-icon esc-icon-legal">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div class="esc-subject">Data export GDPR request</div>
+            <div class="esc-meta"><b>TKT-10233</b> · Johann Weisz · 5h ago</div>
+          </div>
+          <span class="pill-team pill-legal">LEGAL</span>
+        </div>
+
+        <div class="mini-chart-wrap">
+          <div style="flex:1;">
+            <div style="font-size:11px; color:#8B9BB4; margin-bottom:6px;">Escalation trend — last 7 days</div>
+            <div class="sparkline">
+              <div class="spark-bar" style="height:8px;"></div>
+              <div class="spark-bar" style="height:14px;"></div>
+              <div class="spark-bar" style="height:10px;"></div>
+              <div class="spark-bar" style="height:18px;"></div>
+              <div class="spark-bar" style="height:12px;"></div>
+              <div class="spark-bar" style="height:16px;"></div>
+              <div class="spark-bar active" style="height:20px;"></div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:22px; font-weight:700; color:#F87171; font-family:'DM Mono',monospace;">3</div>
+            <div style="font-size:10px; color:#4A5568;">this week</div>
+          </div>
+        </div>
+
       </div>
     </div>
 
-    <!-- Two panels -->
-    <div class="panel-row">
-      <!-- Channel Analytics -->
-      <section class="card">
-        <h3 style="margin-bottom: 4px;">Channel Analytics</h3>
-        <p style="font-size:12px;color:var(--slate-500);margin-bottom:12px;">Last 24 hours</p>
-        <div id="channel-rows">
-          <div class="channel-row"><span class="badge badge-channel-email">Email</span><div class="progress-bar"><div style="width:0%;"></div></div><span class="channel-count">—</span></div>
-          <div class="channel-row"><span class="badge badge-channel-whatsapp">WhatsApp</span><div class="progress-bar"><div style="width:0%;"></div></div><span class="channel-count">—</span></div>
-          <div class="channel-row"><span class="badge badge-channel-web_form">Web Form</span><div class="progress-bar"><div style="width:0%;"></div></div><span class="channel-count">—</span></div>
+    <!-- KNOWLEDGE BASE -->
+    <div class="glass-card">
+      <div class="header-glow" style="background:#06B6D4;"></div>
+      <div class="card-header" style="padding:18px 20px 14px; border-bottom:1px solid rgba(30,39,51,0.8); display:flex; align-items:flex-start; justify-content:space-between; position:relative;">
+        <div>
+          <div class="card-title" style="font-size:14px; font-weight:600; color:#F0F6FF;">Knowledge Base</div>
+          <div class="card-sub" style="font-size:11px; color:#4A5568; margin-top:2px;">Article coverage &amp; retrieval</div>
         </div>
-        <div class="metrics-grid">
-          <div class="metric-item"><div class="lbl">Escalation Rate</div><div class="val cyan" id="m-esc-rate">—</div></div>
-          <div class="metric-item"><div class="lbl">Avg Latency</div><div class="val" id="m-avg-lat">—</div></div>
-          <div class="metric-item"><div class="lbl">SLA Breaches</div><div class="val red" id="m-sla">—</div></div>
-          <div class="metric-item"><div class="lbl">P95 Latency</div><div class="val" id="m-p95">—</div></div>
-        </div>
-      </section>
+        <span class="pill-articles-count">47 ARTICLES</span>
+      </div>
+      <div style="padding:14px 20px 18px;">
 
-      <!-- Escalation Inbox -->
-      <section class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <h3>Escalation Inbox</h3>
-          <span class="badge badge-count" id="esc-count">0 open</span>
+        <div class="coverage-section">
+          <div class="coverage-top">
+            <span class="coverage-lbl">Embedding coverage</span>
+            <span class="coverage-num">44/47</span>
+          </div>
+          <div class="cov-bar"><div class="cov-fill"></div></div>
         </div>
-        <div id="esc-list">
-          <div style="text-align:center;color:var(--slate-500);font-size:13px;padding:16px 0;">Loading...</div>
+
+        <div class="kb-article-row">
+          <div class="kb-rank-num kb-rank-1">1</div>
+          <div class="kb-article-title">How to reset your password</div>
+          <div class="kb-mini-track"><div class="kb-mini-fill" style="width:100%; background:linear-gradient(90deg,#0E7490,#22D3EE);"></div></div>
+          <span class="kb-hits-badge">147 hits</span>
         </div>
-      </section>
+
+        <div class="kb-article-row">
+          <div class="kb-rank-num kb-rank-2">2</div>
+          <div class="kb-article-title">Connecting your Salesforce account</div>
+          <div class="kb-mini-track"><div class="kb-mini-fill" style="width:67%; background:linear-gradient(90deg,#0E7490,#06B6D4);"></div></div>
+          <span class="kb-hits-badge">98 hits</span>
+        </div>
+
+        <div class="kb-article-row">
+          <div class="kb-rank-num kb-rank-3">3</div>
+          <div class="kb-article-title">Exporting tickets to CSV</div>
+          <div class="kb-mini-track"><div class="kb-mini-fill" style="width:56%; background:#0E7490;"></div></div>
+          <span class="kb-hits-badge">82 hits</span>
+        </div>
+
+        <div class="kb-article-row">
+          <div class="kb-rank-num kb-rank-n">4</div>
+          <div class="kb-article-title">Refund policy — annual plans</div>
+          <div class="kb-mini-track"><div class="kb-mini-fill" style="width:50%; background:#0E7490;"></div></div>
+          <span class="kb-hits-badge">74 hits</span>
+        </div>
+
+        <div class="kb-article-row">
+          <div class="kb-rank-num kb-rank-n">5</div>
+          <div class="kb-article-title">API rate limits &amp; quotas</div>
+          <div class="kb-mini-track"><div class="kb-mini-fill" style="width:42%; background:#0E7490;"></div></div>
+          <span class="kb-hits-badge">61 hits</span>
+        </div>
+
+        <div class="kb-donut-wrap">
+          <svg width="52" height="52" viewBox="0 0 52 52" style="flex-shrink:0;">
+            <circle cx="26" cy="26" r="18" fill="none" stroke="#1E2733" stroke-width="8"/>
+            <circle cx="26" cy="26" r="18" fill="none" stroke="#22D3EE" stroke-width="8"
+              stroke-dasharray="67 46" stroke-dashoffset="14" stroke-linecap="round"/>
+            <circle cx="26" cy="26" r="18" fill="none" stroke="#10B981" stroke-width="8"
+              stroke-dasharray="31 82" stroke-dashoffset="-53" stroke-linecap="round"/>
+            <circle cx="26" cy="26" r="18" fill="none" stroke="#8B5CF6" stroke-width="8"
+              stroke-dasharray="15 98" stroke-dashoffset="-84" stroke-linecap="round"/>
+            <text x="26" y="30" text-anchor="middle" font-size="10" font-weight="700"
+              fill="#F0F6FF" font-family="DM Mono, monospace">47</text>
+          </svg>
+          <div style="flex:1;">
+            <div class="donut-legend-item">
+              <div class="donut-dot" style="background:#22D3EE;"></div>
+              <div class="donut-legend-text">Auth &amp; Access</div>
+              <div class="donut-legend-pct" style="color:#22D3EE;">59%</div>
+            </div>
+            <div class="donut-legend-item">
+              <div class="donut-dot" style="background:#10B981;"></div>
+              <div class="donut-legend-text">Billing</div>
+              <div class="donut-legend-pct" style="color:#10B981;">27%</div>
+            </div>
+            <div class="donut-legend-item">
+              <div class="donut-dot" style="background:#8B5CF6;"></div>
+              <div class="donut-legend-text">Integrations</div>
+              <div class="donut-legend-pct" style="color:#8B5CF6;">14%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="view-all-link">
+          View all 47 articles
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#06B6D4" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+
+      </div>
     </div>
 
-    <!-- KB Panel -->
-    <section class="card">
-      <div class="kb-header">
-        <div class="kb-header-left">
-          <h3>Knowledge Base</h3>
-          <span class="badge badge-count" id="kb-total">— articles</span>
-        </div>
-        <div class="kb-header-right">
-          <input type="text" class="input" placeholder="Search articles..." id="kb-search">
-          <select class="select" id="kb-category">
-            <option value="">All categories</option>
-          </select>
-        </div>
+  </section>
+
+</main>
+
+<script>
+'use strict';
+
+// ─── Config ───────────────────────────────────────
+const _isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const API_BASE = _isLocal
+  ? 'http://localhost:8000'
+  : 'https://maheenghouri-customer-success-fte.hf.space';
+
+// ─── Demo data ────────────────────────────────────
+const DEMO_TICKETS = [
+  { id: 'TKT-10247', customer: 'Sarah Lim',      tier: 'Pro',        subject: 'Unable to reset my password from settings', channel: 'email',    status: 'open',        priority: 'high',   ago: '2m ago' },
+  { id: 'TKT-10246', customer: 'David Chen',     tier: 'Enterprise', subject: 'Integration with Salesforce keeps failing', channel: 'web_form', status: 'in_progress', priority: 'high',   ago: '14m ago' },
+  { id: 'TKT-10245', customer: 'Priya Sharma',   tier: 'Free',       subject: 'Refund request for annual plan',             channel: 'whatsapp', status: 'escalated',   priority: 'medium', ago: '21m ago' },
+  { id: 'TKT-10244', customer: 'Mark Johnson',   tier: 'Pro',        subject: 'How do I export tickets to CSV?',            channel: 'email',    status: 'resolved',    priority: 'low',    ago: '38m ago' },
+  { id: 'TKT-10243', customer: 'Ana Silva',      tier: 'Business',   subject: 'API rate limit question',                    channel: 'web_form', status: 'open',        priority: 'medium', ago: '1h ago'  },
+  { id: 'TKT-10242', customer: 'Jin Park',       tier: 'Free',       subject: 'WhatsApp bot not replying on mobile',         channel: 'whatsapp', status: 'in_progress', priority: 'medium', ago: '1h ago'  },
+  { id: 'TKT-10241', customer: 'Nora Hassan',    tier: 'Enterprise', subject: 'Pricing inquiry for 200 seats',               channel: 'email',    status: 'escalated',   priority: 'high',   ago: '2h ago'  },
+  { id: 'TKT-10240', customer: 'Alex Morgan',    tier: 'Pro',        subject: 'Dashboard shows wrong metrics after upgrade', channel: 'web_form', status: 'open',        priority: 'medium', ago: '2h ago'  },
+  { id: 'TKT-10239', customer: 'Yusuf Ali',      tier: 'Free',       subject: 'Invoice PDF failing to download',            channel: 'email',    status: 'resolved',    priority: 'low',    ago: '3h ago'  },
+  { id: 'TKT-10238', customer: 'Emma Rossi',     tier: 'Pro',        subject: 'How do I add a teammate?',                   channel: 'web_form', status: 'resolved',    priority: 'low',    ago: '4h ago'  },
+];
+
+const DEMO_ESCALATIONS = [
+  { sub: 'Refund request for annual plan',       id: 'TKT-10245', cust: 'Priya Sharma',  team: 'billing', ago: '21m ago' },
+  { sub: 'Pricing inquiry for 200 seats',         id: 'TKT-10241', cust: 'Nora Hassan',   team: 'sales',   ago: '2h ago'  },
+  { sub: 'Data export GDPR request',              id: 'TKT-10233', cust: 'Johann Weiss',  team: 'legal',   ago: '5h ago'  },
+];
+
+const DEMO_KB = [
+  { title: 'How to reset your password',           hits: 147 },
+  { title: 'Connecting your Salesforce account',    hits: 96  },
+  { title: 'Exporting tickets to CSV',             hits: 82  },
+  { title: 'Refund policy — annual plans',          hits: 74  },
+  { title: 'API rate limits & quotas',              hits: 61  },
+];
+
+const CHANNEL_LABEL = { email: 'Email', whatsapp: 'WhatsApp', web_form: 'Web Form' };
+const CHANNEL_CLASS = { email: 'b-email', whatsapp: 'b-whatsapp', web_form: 'b-web' };
+const STATUS_LABEL  = { open: 'Open', in_progress: 'In Progress', escalated: 'Escalated', resolved: 'Resolved' };
+const STATUS_CLASS  = { open: 'b-open', in_progress: 'b-in-progress', escalated: 'b-escalated', resolved: 'b-resolved' };
+const PRIORITY_CLASS = { high: 'b-high', medium: 'b-medium', low: 'b-low' };
+
+// ─── Renderers ────────────────────────────────────
+function renderTickets(tickets, filter) {
+  const body = document.getElementById('tickets-body');
+  const rows = (filter === 'all' ? tickets : tickets.filter(t => t.status === filter));
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">No tickets match this filter.</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(t => `
+    <tr>
+      <td><span class="td-id">${t.id}</span></td>
+      <td>
+        <div class="cust-name">${t.customer}</div>
+        <div class="cust-tier">${t.tier}</div>
+      </td>
+      <td><div class="td-subject">${t.subject}</div></td>
+      <td><span class="badge ${CHANNEL_CLASS[t.channel] || ''}">${CHANNEL_LABEL[t.channel] || t.channel}</span></td>
+      <td><span class="badge ${STATUS_CLASS[t.status] || ''}">${STATUS_LABEL[t.status] || t.status}</span></td>
+      <td><span class="badge ${PRIORITY_CLASS[t.priority] || ''}">${t.priority[0].toUpperCase() + t.priority.slice(1)}</span></td>
+      <td><span class="td-time">${t.ago}</span></td>
+    </tr>
+  `).join('');
+}
+
+function renderEscalations(list) {
+  const el = document.getElementById('esc-list');
+  const teamClass = { billing: 'team-billing', legal: 'team-legal', sales: 'team-sales', bugs: 'team-bugs' };
+  const iconColor = { billing: 'amber', legal: '', sales: 'green', bugs: 'amber' };
+  el.innerHTML = list.map(e => `
+    <div class="esc-item">
+      <div class="esc-icon ${iconColor[e.team] || ''}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
       </div>
-
-      <div class="coverage-block">
-        <div class="coverage-labels">
-          <span class="left">Embedding coverage</span>
-          <span class="right" id="kb-coverage-text">—</span>
-        </div>
-        <div class="coverage-bar"><div id="kb-coverage-bar" style="width:0%;"></div></div>
+      <div>
+        <div class="esc-sub">${e.sub}</div>
+        <div class="esc-meta">${e.id} · ${e.cust} · ${e.ago}</div>
       </div>
+      <span class="team-tag ${teamClass[e.team] || ''}">${e.team}</span>
+    </div>
+  `).join('');
+  document.getElementById('esc-count').textContent = `${list.length} open`;
+}
 
-      <div class="kb-grid" id="kb-grid">
-        <div style="grid-column:1/-1;text-align:center;color:var(--slate-500);padding:12px 0;">Loading articles…</div>
-      </div>
+function renderKB(list) {
+  const el = document.getElementById('kb-list');
+  const max = Math.max(...list.map(a => a.hits)) || 1;
+  el.innerHTML = list.map(a => `
+    <div class="kb-item">
+      <div class="kb-title">${a.title}</div>
+      <div class="kb-mini-bar"><div class="kb-mini-fill" style="width:${(a.hits/max*100).toFixed(0)}%"></div></div>
+      <span class="kb-hits">${a.hits} hits</span>
+    </div>
+  `).join('');
+}
 
-      <div class="kb-footer" id="kb-view-all">View all articles →</div>
-    </section>
-  </main>
+// ─── Charts ───────────────────────────────────────
+let volumeChart, channelChart;
 
-  <script src="js/dashboard.js"></script>
+function initCharts(volumeData, channelData) {
+  const vctx = document.getElementById('volumeChart').getContext('2d');
+  volumeChart = new Chart(vctx, {
+    type: 'line',
+    data: {
+      labels: volumeData.labels,
+      datasets: [{
+        data: volumeData.values,
+        borderColor: '#06B6D4',
+        backgroundColor: (ctx) => {
+          const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 200);
+          g.addColorStop(0, 'rgba(6,182,212,0.3)');
+          g.addColorStop(1, 'rgba(6,182,212,0)');
+          return g;
+        },
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#22D3EE',
+        pointBorderColor: '#22D3EE',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#141920',
+          borderColor: '#1E2733',
+          borderWidth: 1,
+          titleColor: '#F0F6FF',
+          bodyColor: '#8B9BB4',
+          displayColors: false,
+          padding: 10,
+          callbacks: { label: (ctx) => ` ${ctx.raw} tickets` }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: '#1E2733', drawBorder: false },
+          ticks: { color: '#8B9BB4', font: { size: 11, family: 'DM Sans' } }
+        },
+        y: {
+          grid: { color: '#1E2733', drawBorder: false },
+          ticks: { color: '#8B9BB4', font: { size: 11, family: 'DM Sans' } },
+          beginAtZero: true,
+        }
+      }
+    }
+  });
+
+  const cctx = document.getElementById('channelChart').getContext('2d');
+  channelChart = new Chart(cctx, {
+    type: 'doughnut',
+    data: {
+      labels: channelData.labels,
+      datasets: [{
+        data: channelData.values,
+        backgroundColor: ['#06B6D4', '#10B981', '#8B5CF6'],
+        borderWidth: 0,
+        hoverOffset: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: '65%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#141920',
+          borderColor: '#1E2733',
+          borderWidth: 1,
+          titleColor: '#F0F6FF',
+          bodyColor: '#8B9BB4',
+          displayColors: true,
+          padding: 10,
+          callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.raw} tickets` }
+        }
+      }
+    }
+  });
+}
+
+// ─── API integration ─────────────────────────────
+async function loadDashboard() {
+  let apiOk = false;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    const [statsRes, ticketsRes] = await Promise.all([
+      fetch(`${API_BASE}/dashboard/stats`, { signal: ctrl.signal }).catch(() => null),
+      fetch(`${API_BASE}/dashboard/tickets?page=1&limit=10`, { signal: ctrl.signal }).catch(() => null),
+    ]);
+    clearTimeout(timer);
+
+    if (statsRes && statsRes.ok) {
+      const s = await statsRes.json();
+      if (s.total_tickets   != null) document.getElementById('stat-total').textContent = s.total_tickets.toLocaleString();
+      if (s.open_tickets    != null) document.getElementById('stat-open').textContent  = s.open_tickets.toLocaleString();
+      if (s.escalated       != null) document.getElementById('stat-esc').textContent   = s.escalated.toLocaleString();
+      if (s.ai_resolved     != null) document.getElementById('stat-ai').textContent    = s.ai_resolved.toLocaleString();
+      if (s.total_tickets   != null) document.getElementById('donut-total').textContent = s.total_tickets.toLocaleString();
+      apiOk = true;
+    }
+
+    if (ticketsRes && ticketsRes.ok) {
+      const t = await ticketsRes.json();
+      const rows = (t.tickets || t.items || t || []).slice(0, 10).map(r => ({
+        id:        r.ticket_ref || r.ticket_id || r.id || '—',
+        customer:  r.customer_name || r.name || r.customer_email || 'Customer',
+        tier:      r.tier || r.plan || 'Standard',
+        subject:   r.subject || '(no subject)',
+        channel:   (r.channel || 'web_form'),
+        status:    (r.status  || 'open'),
+        priority:  (r.priority || 'medium'),
+        ago:       r.created_ago || 'recent',
+      }));
+      if (rows.length) {
+        window._tickets = rows;
+        renderTickets(rows, 'all');
+        document.getElementById('ticket-count').textContent = rows.length;
+        document.getElementById('page-info').textContent = `Showing 1–${rows.length} of ${t.total || rows.length}`;
+      }
+    }
+  } catch (e) {
+    console.warn('Dashboard API unavailable — using demo data.', e);
+  }
+  if (!apiOk) {
+    // Keep demo numbers visible; nothing to overwrite.
+  }
+}
+
+// ─── Filter pills ─────────────────────────────────
+document.getElementById('filter-pills').addEventListener('click', (e) => {
+  const btn = e.target.closest('.pill');
+  if (!btn) return;
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  const source = window._tickets || DEMO_TICKETS;
+  renderTickets(source, btn.dataset.filter);
+});
+
+// ─── Search ───────────────────────────────────────
+document.getElementById('table-search').addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  const source = window._tickets || DEMO_TICKETS;
+  if (!q) { renderTickets(source, 'all'); return; }
+  const filtered = source.filter(t =>
+    t.id.toLowerCase().includes(q) ||
+    t.customer.toLowerCase().includes(q) ||
+    t.subject.toLowerCase().includes(q)
+  );
+  renderTickets(filtered, 'all');
+});
+
+// ─── Tab switching (visual only) ──────────────────
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+  });
+});
+
+// ─── Auto-refresh timer ───────────────────────────
+let countdown = 30;
+setInterval(() => {
+  countdown--;
+  const el = document.getElementById('refresh-timer');
+  if (el) el.textContent = `Refreshes in ${countdown}s`;
+  if (countdown <= 0) {
+    loadDashboard();
+    countdown = 30;
+  }
+}, 1000);
+
+// ─── Init ─────────────────────────────────────────
+(function init() {
+  window._tickets = DEMO_TICKETS;
+  renderTickets(DEMO_TICKETS, 'all');
+  // Escalation Inbox & Knowledge Base are now static premium markup — no JS render needed.
+  initCharts(
+    { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], values: [45, 62, 38, 71, 55, 48, 84] },
+    { labels: ['Email', 'WhatsApp', 'Web Form'], values: [621, 328, 298] }
+  );
+  loadDashboard();
+})();
+</script>
+
 </body>
 </html>
